@@ -159,6 +159,49 @@ class ShajaraApiTest extends TestCase
         $this->postJson('/api/tree/join', ['code' => 'YOQKOD22'], $this->dev(3, 'Test'))->assertStatus(404);
     }
 
+    public function test_personal_invite_preview_and_join(): void
+    {
+        $a = $this->dev(1, 'Ilhom');
+        $b = $this->dev(2, 'Sardor');
+        $c = $this->dev(3, 'Olim');
+
+        $r = $this->postJson('/api/tree', ['name' => 'Ilhom', 'g' => 'm'], $a)->assertCreated();
+        $code = $r->json('invite_code');
+        $myId = $r->json('state.my_person_id');
+        $this->postJson('/api/persons', [
+            'role' => 'father', 'base_id' => $myId, 'name' => 'Baxtiyor', 'g' => 'm', 'alive' => true,
+        ], $a)->assertCreated();
+        $r = $this->postJson('/api/persons', [
+            'role' => 'sibling', 'base_id' => $myId, 'name' => 'Sardor', 'g' => 'm', 'by' => 1988, 'alive' => true,
+        ], $a)->assertCreated();
+        $sardorId = collect($r->json('state.persons'))->firstWhere('name', 'Sardor')['id'];
+
+        // Shaxsiy preview: karta ma'lumoti chiqadi, hali band emas
+        $this->getJson('/api/invites/'.$code.'?person='.$sardorId, $b)
+            ->assertOk()
+            ->assertJsonPath('person.name', 'Sardor')
+            ->assertJsonPath('person.claimed', false);
+
+        // Boshqa daraxt kartasi / yo'q karta — person chiqmaydi
+        $this->getJson('/api/invites/'.$code.'?person=p99999', $b)
+            ->assertOk()
+            ->assertJsonMissingPath('person');
+
+        // Shaxsiy havola bilan qo'shilish — karta darhol egallanadi
+        $r = $this->postJson('/api/tree/join', ['code' => $code, 'person_id' => $sardorId], $b)
+            ->assertCreated();
+        $this->assertSame($sardorId, $r->json('state.my_person_id'));
+
+        // Endi o'sha karta band: preview'da ko'rinadi, join'da ogohlantirish bilan egallanmaydi
+        $this->getJson('/api/invites/'.$code.'?person='.$sardorId, $c)
+            ->assertOk()
+            ->assertJsonPath('person.claimed', true);
+        $r = $this->postJson('/api/tree/join', ['code' => $code, 'person_id' => $sardorId], $c)
+            ->assertCreated();
+        $this->assertNull($r->json('state.my_person_id'));
+        $this->assertNotNull($r->json('notice'));
+    }
+
     public function test_delete_guards(): void
     {
         $h = $this->dev(1, 'Ilhom');
