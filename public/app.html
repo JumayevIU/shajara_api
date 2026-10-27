@@ -1,0 +1,1362 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shajara</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: bitta ekranli ilova — tepada yupqa sarlavha, qolgan hammasi pan/zoom qilinadigan daraxt kanvasi */
+:root{
+  --bg:#f2f4ee;
+  --bg-dots:#d7ddcf;
+  --surface:#ffffff;
+  --ink:#1d2721;
+  --muted:#64726a;
+  --line:#dde2d8;
+  --edge:#b4bfae;
+  --accent:#20684c;
+  --accent-soft:#e2efe7;
+  --on-accent:#ffffff;
+  --gold:#b8872f;
+  --male:#30708f;
+  --male-soft:#e3eef4;
+  --female:#b25a70;
+  --female-soft:#f6e8ec;
+  --band:rgba(32,104,76,.05);
+  --danger:#b23c31;
+  --sheet-shadow:0 -12px 40px rgba(23,42,33,.18);
+  --card-shadow:0 14px 44px rgba(23,42,33,.22);
+  --font-ui:'Manrope',system-ui,-apple-system,sans-serif;
+  --font-display:'Lora',Georgia,serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121713; --bg-dots:#202b22; --surface:#1c231e; --ink:#e9ede8; --muted:#9aa89e;
+    --line:#2c372f; --edge:#4a584e; --accent:#58c492; --accent-soft:#1d3329; --on-accent:#0b2015;
+    --gold:#d8a74e; --male:#76b4d4; --male-soft:#1c2d36; --female:#dd8fa4; --female-soft:#35222a; --band:rgba(255,255,255,.035);
+    --danger:#e0695c; --sheet-shadow:0 -12px 40px rgba(0,0,0,.5); --card-shadow:0 14px 44px rgba(0,0,0,.55);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121713; --bg-dots:#202b22; --surface:#1c231e; --ink:#e9ede8; --muted:#9aa89e;
+  --line:#2c372f; --edge:#4a584e; --accent:#58c492; --accent-soft:#1d3329; --on-accent:#0b2015;
+  --gold:#d8a74e; --male:#76b4d4; --male-soft:#1c2d36; --female:#dd8fa4; --female-soft:#35222a; --band:rgba(255,255,255,.035);
+  --danger:#e0695c; --sheet-shadow:0 -12px 40px rgba(0,0,0,.5); --card-shadow:0 14px 44px rgba(0,0,0,.55);
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--font-ui); font-size:15px; line-height:1.45;
+  overflow:hidden;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+button{font-family:inherit; font-size:inherit; color:inherit; background:none; border:none; padding:0; cursor:pointer}
+button:focus-visible, input:focus-visible, select:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:8px}
+input,select{font-family:inherit; font-size:inherit; color:var(--ink)}
+
+#app{height:100%; display:flex; flex-direction:column}
+
+/* ---- Sarlavha ---- */
+#topbar{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding-block:10px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  border-bottom:1px solid var(--line);
+  background:var(--surface);
+  flex:none;
+}
+.brand{display:flex; align-items:center; gap:10px; min-width:0}
+.brandIcon{color:var(--accent); flex:none}
+.brand h1{font-family:var(--font-display); font-style:italic; font-weight:600; font-size:21px; margin:0; line-height:1.1}
+.brand small{display:block; color:var(--muted); font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase}
+.hright{display:flex; align-items:center; gap:8px; flex:none}
+.chip{
+  background:var(--accent-soft); color:var(--accent); font-weight:700; font-size:12.5px;
+  padding:5px 11px; border-radius:999px; white-space:nowrap; font-variant-numeric:tabular-nums;
+}
+.iconbtn{
+  width:38px; height:38px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center;
+  color:var(--muted); border:1px solid var(--line); background:var(--surface); flex:none;
+}
+.iconbtn:hover{color:var(--ink); border-color:var(--edge)}
+
+/* ---- Kanvas ---- */
+#canvasWrap{position:relative; flex:1; min-height:0; overflow:hidden;
+  background-image:radial-gradient(var(--bg-dots) 1.2px, transparent 1.2px);
+  background-size:26px 26px;
+}
+#svg{position:absolute; inset:0; width:100%; height:100%; touch-action:none; user-select:none; -webkit-user-select:none; cursor:grab}
+#svg:active{cursor:grabbing}
+
+.genband{fill:var(--band)}
+.eline{stroke:var(--edge); stroke-width:1.6; fill:none; stroke-linecap:round}
+.sline{stroke:var(--gold); stroke-width:1.8; stroke-linecap:round}
+.sknot{fill:var(--gold)}
+.card .cardbg{fill:var(--surface); stroke:var(--line); stroke-width:1.2; filter:drop-shadow(0 2px 5px rgba(23,42,33,.10))}
+.card{cursor:pointer}
+.card:hover .cardbg{stroke:var(--edge)}
+.card.m .avatar{fill:var(--male-soft)} .card.m .init{fill:var(--male)}
+.card.f .avatar{fill:var(--female-soft)} .card.f .init{fill:var(--female)}
+.card .gbar{rx:2}
+.card.m .gbar{fill:var(--male)} .card.f .gbar{fill:var(--female)}
+.card .nm{fill:var(--ink); font-family:var(--font-ui); font-size:13px; font-weight:700}
+.card .yrs{fill:var(--muted); font-family:var(--font-ui); font-size:10.5px; font-weight:600; font-variant-numeric:tabular-nums}
+.card .init{font-family:var(--font-display); font-size:14px; font-weight:600; text-anchor:middle}
+.card.dead .cardbg{stroke-dasharray:none}
+.card.dead .nm{opacity:.75} .card.dead .avatar{opacity:.65}
+.card.root .cardbg{stroke:var(--accent); stroke-width:2}
+.mebg{fill:var(--accent)}
+.metx{fill:var(--on-accent); font-size:9.5px; font-weight:800; font-family:var(--font-ui); text-anchor:middle; letter-spacing:.04em}
+
+/* ---- Suzuvchi tugmalar ---- */
+.fabs{position:absolute; display:flex; flex-direction:column; gap:8px; z-index:5;
+  right:max(14px, env(safe-area-inset-right, 0px)); bottom:14px}
+.fab{
+  width:42px; height:42px; border-radius:14px; background:var(--surface); border:1px solid var(--line);
+  display:flex; align-items:center; justify-content:center; color:var(--ink);
+  box-shadow:0 4px 14px rgba(23,42,33,.12);
+}
+.fab:hover{border-color:var(--edge)}
+#btnMe{
+  position:absolute; left:max(14px, env(safe-area-inset-left, 0px)); bottom:14px; z-index:5;
+  display:flex; align-items:center; gap:7px; padding:10px 15px; border-radius:14px;
+  background:var(--surface); border:1px solid var(--line); font-weight:700; font-size:13.5px;
+  box-shadow:0 4px 14px rgba(23,42,33,.12); color:var(--accent);
+}
+#hintBar{
+  position:absolute; left:50%; transform:translateX(-50%); bottom:70px; z-index:4;
+  background:var(--ink); color:var(--bg); font-size:12.5px; font-weight:600;
+  padding:8px 14px; border-radius:999px; white-space:nowrap; opacity:.92; pointer-events:none;
+  max-width:calc(100% - 32px); overflow:hidden; text-overflow:ellipsis;
+}
+
+/* ---- Pastki varaq (sheet) ---- */
+#backdrop{position:fixed; inset:0; background:rgba(10,16,12,.45); z-index:40; opacity:1; transition:opacity .18s}
+.sheet{
+  position:fixed; left:0; right:0; bottom:0; z-index:50;
+  background:var(--surface); border-radius:22px 22px 0 0; box-shadow:var(--sheet-shadow);
+  padding-top:8px;
+  padding-bottom:calc(18px + env(safe-area-inset-bottom, 0px));
+  padding-left:max(18px, env(safe-area-inset-left, 0px));
+  padding-right:max(18px, env(safe-area-inset-right, 0px));
+  max-height:78vh; overflow-y:auto;
+}
+.grabber{width:40px; height:4px; border-radius:2px; background:var(--line); margin:4px auto 14px}
+.pHead{display:flex; align-items:flex-start; gap:13px}
+.pAvatar{
+  width:50px; height:50px; border-radius:16px; flex:none; display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-display); font-weight:600; font-size:21px;
+}
+.pAvatar.m{background:var(--male-soft); color:var(--male)}
+.pAvatar.f{background:var(--female-soft); color:var(--female)}
+.pInfo{flex:1; min-width:0}
+.pInfo h2{margin:0 0 4px; font-size:19px; font-weight:800; line-height:1.2; overflow-wrap:break-word}
+.relchip{display:inline-block; background:var(--accent-soft); color:var(--accent); font-size:12px; font-weight:800; padding:3px 10px; border-radius:999px; margin-bottom:4px}
+.pmeta{color:var(--muted); font-size:13px; font-weight:600; font-variant-numeric:tabular-nums}
+.sheetTitle{font-family:var(--font-display); font-weight:600; font-size:18px; margin:2px 0 4px}
+.actLabel{font-size:11.5px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin:18px 0 9px}
+.actGrid{display:grid; grid-template-columns:1fr 1fr; gap:9px}
+.actBtn{
+  display:flex; align-items:center; gap:9px; padding:12px 13px; border-radius:14px;
+  border:1px solid var(--line); background:var(--bg); font-weight:700; font-size:13.5px; text-align:left;
+}
+.actBtn .ic{color:var(--accent); flex:none}
+.actBtn:hover{border-color:var(--edge)}
+.actBtn:disabled{opacity:.45; cursor:default}
+.dangerRow{margin-top:14px; display:flex; flex-direction:column; gap:9px}
+.dangerBtn{display:flex; align-items:center; gap:9px; padding:12px 13px; border-radius:14px; border:1px solid var(--line); color:var(--danger); font-weight:700; font-size:13.5px; justify-content:center}
+.confirmBox{background:var(--bg); border:1px solid var(--line); border-radius:14px; padding:13px; font-size:13.5px}
+.confirmBox p{margin:0 0 10px; font-weight:600}
+.confirmBox .row{display:flex; gap:9px}
+.settRow{display:flex; flex-direction:column; gap:10px; margin-top:14px}
+.noteTxt{color:var(--muted); font-size:12.5px; margin-top:14px; line-height:1.5}
+
+/* ---- Modal ---- */
+.modalWrap{position:fixed; inset:0; z-index:60; display:flex; align-items:flex-end; justify-content:center;
+  background:rgba(10,16,12,.45);
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:16px;
+}
+.modalCard{
+  background:var(--surface); border-radius:22px; width:100%; max-width:430px;
+  padding:20px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  max-height:90vh; overflow-y:auto; box-shadow:var(--card-shadow);
+}
+@media (min-width:560px){ .modalWrap{align-items:center} .modalCard{padding-bottom:20px} }
+.mHead{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:2px}
+.mHead h2{font-family:var(--font-display); font-weight:600; font-size:20px; margin:0}
+.mCtx{color:var(--muted); font-size:13px; font-weight:600; margin:0 0 16px}
+.field{margin-bottom:14px}
+.field label{display:block; font-size:12px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin-bottom:6px}
+.field input[type=text], .field input[type=number], .field select{
+  width:100%; padding:11px 13px; border-radius:12px; border:1.5px solid var(--line); background:var(--bg);
+  font-weight:600;
+}
+.field input:focus, .field select:focus{border-color:var(--accent); outline:none}
+.seg{display:grid; grid-template-columns:1fr 1fr; gap:7px}
+.seg button{padding:10px; border-radius:12px; border:1.5px solid var(--line); background:var(--bg); font-weight:700; font-size:13.5px}
+.seg button.on{border-color:var(--accent); background:var(--accent-soft); color:var(--accent)}
+.seg button:disabled{opacity:.5; cursor:default}
+.switchRow{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 13px; border:1.5px solid var(--line); border-radius:12px; background:var(--bg)}
+.switchRow span{font-weight:700; font-size:13.5px}
+.switchRow input{width:20px; height:20px; accent-color:var(--accent)}
+.twoCol{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.btn{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:13px; border-radius:14px; font-weight:800; font-size:15px}
+.btn.primary{background:var(--accent); color:var(--on-accent)}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.ghost{border:1.5px solid var(--line); color:var(--ink); background:var(--surface)}
+.btn.ghost:hover{border-color:var(--edge)}
+.btn.small{padding:10px; font-size:13.5px; border-radius:12px}
+.btn.dangerFill{background:var(--danger); color:#fff}
+.formErr{color:var(--danger); font-size:13px; font-weight:700; margin:0 0 10px; min-height:0}
+
+/* ---- Onboarding ---- */
+.overlay{position:fixed; inset:0; z-index:30; background:var(--bg); overflow-y:auto;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:calc(20px + env(safe-area-inset-top, 0px)) calc(24px + env(safe-area-inset-bottom, 0px));
+  display:flex; align-items:center; justify-content:center;
+}
+.obCard{width:100%; max-width:410px}
+.obBrand{display:flex; align-items:center; gap:10px; color:var(--accent); font-family:var(--font-display); font-style:italic; font-weight:600; font-size:24px; margin-bottom:22px}
+.obCard h1{font-family:var(--font-display); font-weight:600; font-size:28px; line-height:1.22; margin:0 0 10px; text-wrap:balance}
+.obCard>p{color:var(--muted); font-weight:600; margin:0 0 24px; max-width:40ch}
+.obOr{display:flex; align-items:center; gap:12px; color:var(--muted); font-size:12.5px; font-weight:700; margin:14px 0; text-transform:uppercase; letter-spacing:.08em}
+.obOr::before,.obOr::after{content:""; flex:1; height:1px; background:var(--line)}
+.obNote{color:var(--muted); font-size:12.5px; margin-top:18px}
+
+/* ---- Toast ---- */
+#toast{
+  position:fixed; top:calc(14px + env(safe-area-inset-top, 0px)); left:50%; transform:translateX(-50%); z-index:70;
+  background:var(--ink); color:var(--bg); font-weight:700; font-size:13.5px;
+  padding:10px 18px; border-radius:999px; box-shadow:var(--card-shadow);
+  max-width:calc(100% - 32px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important} }
+@media (max-width:420px){ .brand small{display:none} .chip{font-size:11.5px} }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header id="topbar">
+    <div class="brand">
+      <svg class="brandIcon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M12 21v-8M12 13 6.8 9.2M12 13l5.2-3.8"/>
+        <circle cx="12" cy="5" r="2.3"/><circle cx="5" cy="7.6" r="2"/><circle cx="19" cy="7.6" r="2"/>
+      </svg>
+      <div><h1>Shajara</h1><small>oila daraxti</small></div>
+    </div>
+    <div class="hright">
+      <div id="stats" class="chip">—</div>
+      <button id="btnSettings" class="iconbtn" aria-label="Sozlamalar"></button>
+    </div>
+  </header>
+
+  <div id="canvasWrap">
+    <svg id="svg" aria-label="Oila daraxti"><g id="world"></g></svg>
+    <div id="hintBar" hidden>Kartani bosing — qarindosh qo'shish shu yerdan boshlanadi</div>
+    <button id="btnMe" hidden></button>
+    <div class="fabs">
+      <button class="fab" id="btnZoomIn" aria-label="Kattalashtirish"></button>
+      <button class="fab" id="btnZoomOut" aria-label="Kichiklashtirish"></button>
+      <button class="fab" id="btnFit" aria-label="Daraxtni sig'dirish"></button>
+    </div>
+  </div>
+</div>
+
+<div id="onboard" class="overlay" hidden>
+  <div class="obCard">
+    <div class="obBrand">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M12 21v-8M12 13 6.8 9.2M12 13l5.2-3.8"/>
+        <circle cx="12" cy="5" r="2.3"/><circle cx="5" cy="7.6" r="2"/><circle cx="19" cy="7.6" r="2"/>
+      </svg>
+      Shajara
+    </div>
+    <h1>Oilangiz daraxtini tuzing</h1>
+    <p>O'zingizdan boshlang — ota-ona, bobo-buvi, turmush o'rtoq va farzandlarni birma-bir qo'shib, butun shajarani bitta daraxtda ko'ring.</p>
+    <div class="field">
+      <label for="obName">Ismingiz</label>
+      <input type="text" id="obName" maxlength="30" placeholder="Masalan: Ilhom" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Jinsingiz</label>
+      <div class="seg" id="obG">
+        <button type="button" data-v="m" class="on">Erkak</button>
+        <button type="button" data-v="f">Ayol</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="obYear">Tug'ilgan yil (ixtiyoriy)</label>
+      <input type="number" id="obYear" inputmode="numeric" placeholder="1992">
+    </div>
+    <p class="formErr" id="obErr"></p>
+    <button class="btn primary" id="obStart">Daraxtni boshlash</button>
+    <div class="obOr">yoki</div>
+    <button class="btn ghost" id="obDemo">Namuna oilani ko'rish</button>
+    <p class="obNote" id="obNote">Prototip: ma'lumotlar faqat shu qurilmaning o'zida saqlanadi.</p>
+  </div>
+</div>
+
+<div id="backdrop" hidden></div>
+
+<div id="sheet" class="sheet" role="dialog" aria-label="A'zo haqida" hidden>
+  <div class="grabber"></div>
+  <div class="pHead">
+    <div class="pAvatar" id="shAvatar">A</div>
+    <div class="pInfo">
+      <h2 id="shName"></h2>
+      <div><span class="relchip" id="shRel"></span></div>
+      <div class="pmeta" id="shMeta"></div>
+    </div>
+    <button class="iconbtn" id="shClose" aria-label="Yopish"></button>
+  </div>
+  <div class="actLabel">Qarindosh qo'shish</div>
+  <div class="actGrid" id="shActions"></div>
+  <div class="dangerRow" id="shDanger"></div>
+</div>
+
+<div id="settingsSheet" class="sheet" role="dialog" aria-label="Sozlamalar" hidden>
+  <div class="grabber"></div>
+  <div class="pHead">
+    <div class="pInfo"><h2 class="sheetTitle" style="margin:0">Sozlamalar</h2></div>
+    <button class="iconbtn" id="setClose" aria-label="Yopish"></button>
+  </div>
+  <div class="settRow" id="settRows"></div>
+  <p class="noteTxt" id="settNote"></p>
+</div>
+
+<div id="modal" class="modalWrap" hidden>
+  <div class="modalCard">
+    <div class="mHead"><h2 id="mTitle"></h2><button class="iconbtn" id="mClose" aria-label="Yopish"></button></div>
+    <p class="mCtx" id="mCtx"></p>
+    <div class="field">
+      <label for="f_name">Ismi</label>
+      <input type="text" id="f_name" maxlength="30" autocomplete="off" placeholder="Ism kiriting">
+    </div>
+    <div class="field">
+      <label>Jinsi</label>
+      <div class="seg" id="f_g">
+        <button type="button" data-v="m" class="on">Erkak</button>
+        <button type="button" data-v="f">Ayol</button>
+      </div>
+    </div>
+    <div class="field" id="f_otherWrap" hidden>
+      <label for="f_other">Ikkinchi ota-onasi</label>
+      <select id="f_other"></select>
+    </div>
+    <div class="field">
+      <div class="switchRow"><span>Hayotda</span><input type="checkbox" id="f_alive" checked></div>
+    </div>
+    <div class="twoCol">
+      <div class="field">
+        <label for="f_by">Tug'ilgan yil</label>
+        <input type="number" id="f_by" inputmode="numeric" placeholder="—">
+      </div>
+      <div class="field" id="f_dyWrap" hidden>
+        <label for="f_dy">Vafot yili</label>
+        <input type="number" id="f_dy" inputmode="numeric" placeholder="—">
+      </div>
+    </div>
+    <p class="formErr" id="mErr"></p>
+    <button class="btn primary" id="mSave">Saqlash</button>
+  </div>
+</div>
+
+<div id="toast" hidden></div>
+
+<script>
+"use strict";
+/* ============ Ikonkalar ============ */
+const IC = {
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  minus:'<path d="M5 12h14"/>',
+  fit:'<path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/>',
+  target:'<circle cx="12" cy="12" r="6.5"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>',
+  gear:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.4"/><circle cx="9" cy="17" r="2.4"/>',
+  pencil:'<path d="M4 20v-3.5L16.2 4.3a2 2 0 0 1 2.8 2.8L6.8 19.3 4 20z"/>',
+  trash:'<path d="M4 7h16M9.5 7V5h5v2M6.5 7l.9 13h9.2l.9-13"/>',
+  x:'<path d="M6 6l12 12M18 6L6 18"/>',
+  heart:'<path d="M12 20S4.6 15.3 3.1 11c-1-3 1.2-6 4.2-6C9.4 5 11 6.6 12 8c1-1.4 2.6-3 4.7-3 3 0 5.2 3 4.2 6C19.4 15.3 12 20 12 20z"/>',
+  up:'<path d="M12 19V6M6.5 11.5 12 6l5.5 5.5"/>',
+  down:'<path d="M12 5v13M6.5 12.5 12 18l5.5-5.5"/>',
+  users:'<circle cx="7.5" cy="8" r="3"/><circle cx="16.5" cy="8" r="3"/><path d="M2.5 19c.7-3.2 2.6-4.8 5-4.8s4.3 1.6 5 4.8M11.5 19c.7-3.2 2.6-4.8 5-4.8s4.3 1.6 5 4.8"/>',
+  sprout:'<path d="M12 21v-7M12 13 6.8 9.2M12 13l5.2-3.8"/><circle cx="12" cy="5" r="2.3"/><circle cx="5" cy="7.6" r="2"/><circle cx="19" cy="7.6" r="2"/>'
+};
+function icon(n, s){ s = s || 18;
+  return '<svg class="ic" width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+IC[n]+'</svg>';
+}
+
+/* ============ Holat va saqlash ============ */
+const LS_KEY = 'shajara_v1';
+const CARD_W = 128, CARD_H = 56, SP_GAP = 18, BLOCK_GAP = 40, SIB_GAP = 28, GROUP_GAP = 64, ROW_H = 150, BUS_DROP = 26;
+const THIS_YEAR = new Date().getFullYear();
+let state = null;          // {persons:{id:{...}}, rootId, nextId}
+let lastLayout = null;
+let view = {x:0, y:0, k:1};
+let selectedId = null;
+
+function save(){ if(online.active) return; try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }
+function loadState(){
+  try{
+    const s = localStorage.getItem(LS_KEY);
+    if(s){ const d = JSON.parse(s); if(d && d.persons && d.rootId && d.persons[d.rootId]) return d; }
+  }catch(e){}
+  return null;
+}
+function P(id){ return state.persons[id]; }
+function childrenOf(id){
+  const out = [];
+  for(const p of Object.values(state.persons)) if(p.fatherId===id || p.motherId===id) out.push(p.id);
+  return out;
+}
+function addPerson(d){
+  const id = 'p' + (state.nextId++);
+  state.persons[id] = Object.assign({id, name:'', g:'m', by:null, dy:null, alive:true, fatherId:null, motherId:null, spouseIds:[]}, d);
+  return id;
+}
+function linkSpouse(a,b){
+  if(!P(a).spouseIds.includes(b)) P(a).spouseIds.push(b);
+  if(!P(b).spouseIds.includes(a)) P(b).spouseIds.push(a);
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+
+/* ============ Onlayn rejim (backend API) ============ */
+// Backend joylangach API_DEFAULT ga haqiqiy manzil yoziladi, masalan 'https://api.shajara.uz'
+const API_DEFAULT = '';
+const API_BASE = new URLSearchParams(location.search).get('api') || API_DEFAULT;
+const DEV_USER = new URLSearchParams(location.search).get('dev'); // "12345:Ism" — faqat lokal sinov
+const online = {candidate:false, active:false, myPersonId:null, inviteUrl:null, inviteCode:null};
+let pendingMutation = false;
+
+function authHeaders(){
+  const h = {'Content-Type':'application/json', 'Accept':'application/json'};
+  if(typeof tg !== 'undefined' && tg && tg.initData) h['Authorization'] = 'tma ' + tg.initData;
+  else if(DEV_USER) h['X-Dev-User'] = DEV_USER;
+  return h;
+}
+async function api(path, method, body){
+  const r = await fetch(API_BASE + path, {
+    method: method || 'GET',
+    headers: authHeaders(),
+    body: body ? JSON.stringify(body) : undefined
+  });
+  let data = null;
+  try{ data = await r.json(); }catch(e){}
+  if(!r.ok){
+    const msg = data && (data.message || data.error) ? (data.message || data.error) : 'Server xatosi (' + r.status + ')';
+    throw new Error(msg);
+  }
+  return data;
+}
+function applyServerState(resp, opts){
+  if(!resp || !resp.in_tree) return false;
+  const st = resp.state;
+  state = {persons: st.persons, rootId: st.my_person_id || st.root_id, nextId: 0};
+  online.active = true;
+  online.myPersonId = st.my_person_id || null;
+  online.inviteUrl = resp.invite_url || null;
+  online.inviteCode = resp.invite_code || null;
+  hideOnboard();
+  rerender(opts);
+  return true;
+}
+async function apiMutate(path, method, body, okMsg){
+  if(pendingMutation) return;
+  pendingMutation = true;
+  try{
+    const resp = await api(path, method, body);
+    closeLayers();
+    const n = resp && resp.in_tree ? Object.keys(resp.state.persons).length : 0;
+    applyServerState(resp, n && n <= 6 ? {fit:true} : undefined);
+    if(okMsg) toast(okMsg);
+  }catch(e){ toast(e.message); }
+  pendingMutation = false;
+}
+async function bootOnline(){
+  $('stats').textContent = '...';
+  const hideLocalOnly = () => {
+    $('obDemo').hidden = true;
+    const d = document.querySelector('.obOr'); if(d) d.hidden = true;
+    $('obNote').textContent = "Daraxtingiz umumiy bazada saqlanadi — keyin qarindoshlaringizni taklif qilib, birga to'ldirasiz.";
+  };
+  try{
+    const resp = await api('/api/state');
+    if(applyServerState(resp, {fit:true})) return;
+    const startParam = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param)
+      || new URLSearchParams(location.search).get('startapp') || '';
+    if(startParam){
+      try{
+        const inv = await api('/api/invites/' + encodeURIComponent(startParam));
+        showJoinScreen(startParam, inv);
+        return;
+      }catch(e){ /* kod noto'g'ri — oddiy onboarding */ }
+    }
+    hideLocalOnly();
+    showOnboard();
+  }catch(e){
+    hideLocalOnly();
+    showOnboard();
+    $('obErr').textContent = "Server bilan aloqa yo'q: " + e.message;
+  }
+}
+function showJoinScreen(code, inv){
+  showOnboard();
+  const card = document.querySelector('.obCard');
+  card.innerHTML = '<div class="obBrand">' + icon('sprout',30) + ' Shajara</div>'
+    + '<h1>Sizni daraxtga taklif qilishdi</h1>'
+    + '<p><b>' + escapeHtml(inv.owner_name || '') + '</b>ning oila daraxti — '
+    + (inv.persons_count || 0) + " a'zo, " + (inv.members_count || 0) + ' foydalanuvchi.</p>'
+    + '<p class="formErr" id="joinErr"></p>'
+    + '<button class="btn primary" id="joinBtn">Daraxtga qo\'shilish</button>'
+    + '<p class="obNote">Qo\'shilgach, daraxtdagi o\'z kartangizni topib «Bu — men» deb belgilang.</p>';
+  $('joinBtn').addEventListener('click', async () => {
+    $('joinBtn').disabled = true;
+    try{
+      const resp = await api('/api/tree/join', 'POST', {code});
+      applyServerState(resp, {fit:true});
+      toast("Xush kelibsiz! O'z kartangizni belgilang");
+    }catch(e){ $('joinErr').textContent = e.message; $('joinBtn').disabled = false; }
+  });
+}
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && online.active && !pendingMutation){
+    api('/api/state').then(r => applyServerState(r)).catch(() => {});
+  }
+});
+
+/* ============ Qo'shish amallari ============ */
+function performAdd(role, baseId, d){
+  const base = P(baseId);
+  let id = null;
+  if(role === 'father'){
+    id = addPerson(Object.assign({}, d, {g:'m'}));
+    base.fatherId = id;
+    if(base.motherId) linkSpouse(id, base.motherId);
+  } else if(role === 'mother'){
+    id = addPerson(Object.assign({}, d, {g:'f'}));
+    base.motherId = id;
+    if(base.fatherId) linkSpouse(id, base.fatherId);
+  } else if(role === 'spouse'){
+    id = addPerson(d);
+    linkSpouse(baseId, id);
+  } else if(role === 'child'){
+    const other = d.otherParentId || null;
+    delete d.otherParentId;
+    id = addPerson(d);
+    const c = P(id);
+    if(base.g === 'm'){ c.fatherId = baseId; c.motherId = other; }
+    else { c.motherId = baseId; c.fatherId = other; }
+  } else if(role === 'sibling'){
+    id = addPerson(d);
+    P(id).fatherId = base.fatherId;
+    P(id).motherId = base.motherId;
+  }
+  return id;
+}
+function neighborsOf(id){
+  const p = P(id); const out = [];
+  if(p.fatherId) out.push(p.fatherId);
+  if(p.motherId) out.push(p.motherId);
+  out.push(...p.spouseIds, ...childrenOf(id));
+  return out;
+}
+function canDelete(id){
+  if(id === state.rootId) return {ok:false, msg:"O'zingizni o'chira olmaysiz"};
+  const total = Object.keys(state.persons).length;
+  const seen = new Set([state.rootId]);
+  const q = [state.rootId];
+  while(q.length){
+    const cur = q.shift();
+    for(const n of neighborsOf(cur)) if(n !== id && !seen.has(n)){ seen.add(n); q.push(n); }
+  }
+  if(seen.size !== total - 1) return {ok:false, msg:"Avval bu kishi orqali bog'langan qarindoshlarni o'chiring"};
+  return {ok:true};
+}
+function doDelete(id){
+  for(const p of Object.values(state.persons)){
+    if(p.fatherId === id) p.fatherId = null;
+    if(p.motherId === id) p.motherId = null;
+    p.spouseIds = p.spouseIds.filter(s => s !== id);
+  }
+  delete state.persons[id];
+}
+
+/* ============ Qarindoshlik nomi ============ */
+function relationLabel(id){
+  if(id === state.rootId) return 'Siz';
+  const prev = {};
+  const seen = new Set([state.rootId]);
+  const q = [state.rootId];
+  let found = false;
+  while(q.length){
+    const cur = q.shift();
+    if(cur === id){ found = true; break; }
+    const p = P(cur);
+    const step = (n, code) => { if(n && state.persons[n] && !seen.has(n)){ seen.add(n); prev[n] = {from:cur, code}; q.push(n); } };
+    step(p.fatherId,'F'); step(p.motherId,'M');
+    p.spouseIds.forEach(s => step(s,'S'));
+    childrenOf(cur).forEach(c => step(c,'C'));
+  }
+  if(!prev[id]) return 'Qarindoshingiz';
+  const codes = [], nodes = [];
+  let cur = id;
+  while(cur !== state.rootId){ const e = prev[cur]; codes.unshift(e.code); nodes.unshift(cur); cur = e.from; }
+  const s = codes.join('');
+  const t = P(id), m = t.g === 'm', r = P(state.rootId);
+  if(s==='F') return 'Otangiz';
+  if(s==='M') return 'Onangiz';
+  if(s==='S') return "Turmush o'rtog'ingiz";
+  if(s==='C') return m ? "O'g'lingiz" : 'Qizingiz';
+  if(s==='FF') return 'Bobongiz (ota tomon)';
+  if(s==='FM') return 'Buvingiz (ota tomon)';
+  if(s==='MF') return 'Bobongiz (ona tomon)';
+  if(s==='MM') return 'Buvingiz (ona tomon)';
+  if(s==='FC' || s==='MC'){
+    if(t.by && r.by){
+      if(m) return t.by <= r.by ? 'Akangiz' : 'Ukangiz';
+      return t.by <= r.by ? 'Opangiz' : 'Singlingiz';
+    }
+    return m ? 'Aka-ukangiz' : 'Opa-singlingiz';
+  }
+  if(s==='CC') return 'Nabirangiz';
+  if(s==='CCC') return 'Evarangiz';
+  if(s==='CS') return m ? 'Kuyovingiz' : 'Keliningiz';
+  if(s==='SF') return 'Qaynotangiz';
+  if(s==='SM') return 'Qaynonangiz';
+  if(s==='SC') return m ? "O'gay o'g'lingiz" : "O'gay qizingiz";
+  if(/^[FM]{3,}$/.test(s)) return s.endsWith('F') ? 'Katta bobongiz' : 'Katta buvingiz';
+  if(s==='FFC' || s==='FMC') return m ? 'Amakingiz' : 'Ammangiz';
+  if(s==='MFC' || s==='MMC') return m ? "Tog'angiz" : 'Xolangiz';
+  if(s==='FCC' || s==='MCC') return 'Jiyaningiz';
+  if(s==='FCS' || s==='MCS') return m ? 'Pochchangiz' : 'Yangangiz';
+  if(/^[FM][FM]CC$/.test(s)){
+    const sib = P(nodes[2]);
+    if(s[0]==='F') return sib.g==='m' ? 'Amakivachchangiz' : 'Ammavachchangiz';
+    return sib.g==='m' ? "Tog'avachchangiz" : 'Xolavachchangiz';
+  }
+  return 'Qarindoshingiz';
+}
+
+/* ============ Joylashuv (layout) ============ */
+function computeLayout(){
+  const ids = Object.keys(state.persons);
+  const gen = {}; gen[state.rootId] = 0;
+  const q = [state.rootId];
+  while(q.length){
+    const id = q.shift(); const p = P(id); const g = gen[id];
+    const push = (n, ng) => { if(n && state.persons[n] && !(n in gen)){ gen[n] = ng; q.push(n); } };
+    push(p.fatherId, g+1); push(p.motherId, g+1);
+    p.spouseIds.forEach(s2 => push(s2, g));
+    childrenOf(id).forEach(c => push(c, g-1));
+  }
+  const reached = ids.filter(i => i in gen);
+  const gensSorted = [...new Set(reached.map(i => gen[i]))].sort((a,b) => b-a);
+  function bw(b){ return b.members.length*CARD_W + (b.members.length-1)*SP_GAP; }
+
+  const layers = gensSorted.map((g, li) => {
+    const members = reached.filter(i => gen[i]===g).sort();
+    const used = new Set(); const blocks = [];
+    for(const mId of members){
+      if(used.has(mId)) continue;
+      const cset = new Set([mId]); const st = [mId];
+      while(st.length){
+        const c = st.pop();
+        for(const sp of P(c).spouseIds) if(gen[sp]===g && !cset.has(sp)){ cset.add(sp); st.push(sp); }
+      }
+      cset.forEach(c => used.add(c));
+      const comp = [...cset];
+      let order;
+      if(comp.length === 1) order = comp;
+      else{
+        const deg = c => P(c).spouseIds.filter(sp => cset.has(sp)).length;
+        const start = comp.find(c => deg(c)===1) || comp[0];
+        order = [start]; const os = new Set([start]);
+        while(order.length < comp.length){
+          const last = order[order.length-1];
+          const nxt = P(last).spouseIds.find(sp => cset.has(sp) && !os.has(sp));
+          if(!nxt) break;
+          order.push(nxt); os.add(nxt);
+        }
+        comp.forEach(c => { if(!os.has(c)){ order.push(c); os.add(c); } });
+        if(order.length===2 && P(order[0]).g==='f' && P(order[1]).g==='m') order.reverse();
+      }
+      blocks.push({members:order, x:0, desC:null});
+    }
+    return {g, li, blocks};
+  });
+
+  for(const L of layers){
+    const tw = L.blocks.reduce((a,b) => a + bw(b), 0) + (L.blocks.length-1)*BLOCK_GAP;
+    let x = -tw/2;
+    for(const b of L.blocks){ b.x = x; x += bw(b) + BLOCK_GAP; }
+  }
+  const cxOf = {};
+  function refresh(){
+    for(const L of layers) for(const b of L.blocks)
+      b.members.forEach((mId,i) => { cxOf[mId] = b.x + i*(CARD_W+SP_GAP) + CARD_W/2; });
+  }
+  refresh();
+
+  function parentKeyOf(b){
+    for(const mId of b.members){
+      const p = P(mId);
+      if(p.fatherId || p.motherId) return (p.fatherId||'') + '|' + (p.motherId||'');
+    }
+    return null;
+  }
+  for(let it=0; it<12; it++){
+    const seq = it%2 ? [...layers].reverse() : layers;
+    for(const L of seq){
+      for(const b of L.blocks){
+        let sum=0, n=0;
+        for(const mId of b.members){
+          const p = P(mId);
+          if(p.fatherId && cxOf[p.fatherId]!=null && gen[p.fatherId]===L.g+1){ sum+=cxOf[p.fatherId]; n++; }
+          if(p.motherId && cxOf[p.motherId]!=null && gen[p.motherId]===L.g+1){ sum+=cxOf[p.motherId]; n++; }
+          for(const c of childrenOf(mId)) if(cxOf[c]!=null && gen[c]===L.g-1){ sum+=cxOf[c]; n++; }
+        }
+        b.desC = n ? sum/n : b.x + bw(b)/2;
+      }
+      // Bir ota-onaning farzandlari (bloklari) yonma-yon guruhlanadi
+      const groups = {};
+      let solo = 0;
+      for(const b of L.blocks){
+        const k = parentKeyOf(b) || ('solo' + (solo++));
+        (groups[k] = groups[k] || []).push(b);
+      }
+      const glist = Object.values(groups).map(bs => ({
+        bs: bs.sort((a,b2) => a.desC - b2.desC),
+        c: bs.reduce((s,b2) => s + b2.desC, 0) / bs.length
+      })).sort((a,b2) => a.c - b2.c);
+      L.blocks = glist.flatMap(g2 => g2.bs);
+      // Oraliqlar: aka-ukalar orasi tor, boshqa guruhlar orasi keng
+      const gapAfter = [];
+      for(let i=0;i<L.blocks.length-1;i++){
+        const k1 = parentKeyOf(L.blocks[i]), k2 = parentKeyOf(L.blocks[i+1]);
+        gapAfter.push(k1 && k1 === k2 ? SIB_GAP : GROUP_GAP);
+      }
+      const n = L.blocks.length;
+      const xs1 = new Array(n), xs2 = new Array(n);
+      let cur = -Infinity;
+      for(let i=0;i<n;i++){
+        const b = L.blocks[i];
+        xs1[i] = Math.max(b.desC - bw(b)/2, cur);
+        cur = xs1[i] + bw(b) + (gapAfter[i] || 0);
+      }
+      cur = Infinity;
+      for(let i=n-1;i>=0;i--){
+        const b = L.blocks[i];
+        xs2[i] = Math.min(b.desC - bw(b)/2, cur - (gapAfter[i] || 0) - bw(b));
+        cur = xs2[i];
+      }
+      for(let i=0;i<n;i++) L.blocks[i].x = (xs1[i]+xs2[i])/2;
+      refresh();
+    }
+  }
+
+  // Juftlikni yo'naltirish: qon qarindosh a'zo o'z ota-onasi (va aka-ukalari) tomonida tursin
+  for(const L of layers) for(const b of L.blocks){
+    if(b.members.length !== 2) continue;
+    const parC = m => {
+      const p = P(m); const xs = [];
+      if(p.fatherId && cxOf[p.fatherId] != null) xs.push(cxOf[p.fatherId]);
+      if(p.motherId && cxOf[p.motherId] != null) xs.push(cxOf[p.motherId]);
+      return xs.length ? xs.reduce((s,v) => s+v, 0)/xs.length : null;
+    };
+    const pa = parC(b.members[0]), pb = parC(b.members[1]);
+    if((pa == null) === (pb == null)) continue;
+    const blood = pa != null ? b.members[0] : b.members[1];
+    const px = pa != null ? pa : pb;
+    const center = b.x + bw(b)/2;
+    const bloodFirst = b.members[0] === blood;
+    if((px < center && !bloodFirst) || (px > center && bloodFirst)) b.members.reverse();
+  }
+  refresh();
+
+  const pos = {};
+  for(const L of layers){
+    const y = L.li * ROW_H;
+    for(const b of L.blocks) b.members.forEach(mId => { pos[mId] = {x: cxOf[mId]-CARD_W/2, y}; });
+  }
+  return {pos, layers, gen, count: reached.length, gens: gensSorted.length};
+}
+
+/* ============ Chizish ============ */
+const world = document.getElementById('world');
+const svg = document.getElementById('svg');
+
+function yearsStr(p){
+  if(!p.alive) return (p.by||'?') + ' – ' + (p.dy||'?');
+  return p.by ? p.by + '-yil' : '';
+}
+function drawSVG(lay){
+  const pos = lay.pos;
+  let edges = '', nodes = '', bands = '';
+  for(const L of lay.layers){
+    let mn = Infinity, mx = -Infinity;
+    for(const b of L.blocks) for(const m of b.members){
+      if(pos[m]){ mn = Math.min(mn, pos[m].x); mx = Math.max(mx, pos[m].x + CARD_W); }
+    }
+    if(mn === Infinity) continue;
+    const y = L.li * ROW_H;
+    bands += '<rect class="genband" x="'+(mn-26)+'" y="'+(y-14)+'" width="'+(mx-mn+52)+'" height="'+(CARD_H+28)+'" rx="20"/>';
+  }
+
+  for(const L of lay.layers) for(const b of L.blocks){
+    for(let i=0;i<b.members.length-1;i++){
+      const a = b.members[i], c = b.members[i+1];
+      if(!P(a).spouseIds.includes(c)) continue;
+      const ax = pos[a].x + CARD_W, bx = pos[c].x, y = pos[a].y + CARD_H/2;
+      edges += '<line class="sline" x1="'+ax+'" y1="'+y+'" x2="'+bx+'" y2="'+y+'"/>'
+             + '<circle class="sknot" cx="'+((ax+bx)/2)+'" cy="'+y+'" r="3.4"/>';
+    }
+  }
+
+  const fams = {};
+  for(const p of Object.values(state.persons)){
+    if(!pos[p.id] || (!p.fatherId && !p.motherId)) continue;
+    const key = (p.fatherId||'') + '|' + (p.motherId||'');
+    (fams[key] = fams[key] || []).push(p.id);
+  }
+  for(const key of Object.keys(fams)){
+    const parts = key.split('|');
+    const pf = parts[0] ? pos[parts[0]] : null;
+    const pm = parts[1] ? pos[parts[1]] : null;
+    let ax, ay;
+    if(pf && pm){
+      ax = (pf.x + pm.x + CARD_W)/2;
+      const adjacent = pf.y === pm.y && Math.abs(pf.x - pm.x) <= CARD_W + SP_GAP + 2;
+      ay = adjacent ? pf.y + CARD_H/2 : Math.max(pf.y, pm.y) + CARD_H;
+    } else if(pf){ ax = pf.x + CARD_W/2; ay = pf.y + CARD_H; }
+    else if(pm){ ax = pm.x + CARD_W/2; ay = pm.y + CARD_H; }
+    else continue;
+    const kids = fams[key].filter(k => pos[k]);
+    if(!kids.length) continue;
+    const busY = Math.min(...kids.map(k => pos[k].y)) - BUS_DROP;
+    edges += '<path class="eline" d="M '+ax+' '+ay+' V '+busY+'"/>';
+    const xs = kids.map(k => pos[k].x + CARD_W/2);
+    const minX = Math.min(...xs, ax), maxX = Math.max(...xs, ax);
+    if(maxX - minX > 0.5) edges += '<path class="eline" d="M '+minX+' '+busY+' H '+maxX+'"/>';
+    for(const k of kids){
+      const kx = pos[k].x + CARD_W/2;
+      edges += '<path class="eline" d="M '+kx+' '+busY+' V '+pos[k].y+'"/>';
+    }
+  }
+
+  for(const id of Object.keys(pos)){
+    const p = P(id), pt = pos[id];
+    const isRoot = id === state.rootId && !(online.active && !online.myPersonId);
+    let nm = p.name || '—';
+    if(nm.length > 13) nm = nm.slice(0,12) + '…';
+    const cls = 'card ' + p.g + (isRoot?' root':'') + (p.alive?'':' dead');
+    nodes += '<g class="'+cls+'" data-id="'+id+'" transform="translate('+pt.x+','+pt.y+')">'
+      + '<rect class="cardbg" width="'+CARD_W+'" height="'+CARD_H+'" rx="14"/>'
+      + '<rect class="gbar" x="10" y="12" width="4" height="32" rx="2"/>'
+      + '<circle class="avatar" cx="30" cy="28" r="14"/>'
+      + '<text class="init" x="30" y="33">'+escapeHtml((p.name||'?').charAt(0).toUpperCase())+'</text>'
+      + '<text class="nm" x="52" y="26">'+escapeHtml(nm)+'</text>'
+      + '<text class="yrs" x="52" y="43">'+escapeHtml(yearsStr(p))+'</text>'
+      + (isRoot ? '<g transform="translate('+(CARD_W-30)+',-9)"><rect class="mebg" width="34" height="18" rx="9"/><text class="metx" x="17" y="12.5">SIZ</text></g>' : '')
+      + '</g>';
+  }
+  world.innerHTML = bands + edges + nodes;
+}
+
+function updateStats(lay){
+  document.getElementById('stats').textContent = lay.count + " a'zo · " + lay.gens + ' avlod';
+  const hint = document.getElementById('hintBar');
+  hint.hidden = !(lay.count >= 1 && lay.count <= 3);
+}
+function rerender(opts){
+  lastLayout = computeLayout();
+  drawSVG(lastLayout);
+  updateStats(lastLayout);
+  save();
+  if(opts && opts.fit) fitView();
+}
+
+/* ============ Pan / Zoom ============ */
+function applyView(){
+  world.setAttribute('transform', 'translate('+view.x+','+view.y+') scale('+view.k+')');
+}
+function clampK(k){ return Math.min(2.5, Math.max(0.2, k)); }
+function zoomAt(cx, cy, k2){
+  k2 = clampK(k2);
+  const r = svg.getBoundingClientRect();
+  const px = cx - r.left, py = cy - r.top;
+  view.x = px - (px - view.x) * (k2/view.k);
+  view.y = py - (py - view.y) * (k2/view.k);
+  view.k = k2;
+  applyView();
+}
+function fitView(){
+  if(!lastLayout || !lastLayout.count) return;
+  const pos = lastLayout.pos;
+  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+  for(const id of Object.keys(pos)){
+    minX = Math.min(minX, pos[id].x); maxX = Math.max(maxX, pos[id].x + CARD_W);
+    minY = Math.min(minY, pos[id].y); maxY = Math.max(maxY, pos[id].y + CARD_H);
+  }
+  minX -= 36; maxX += 36; minY -= 40; maxY += 46;
+  const r = svg.getBoundingClientRect();
+  const k = clampK(Math.min(r.width/(maxX-minX), r.height/(maxY-minY), 1.25));
+  view.k = k;
+  view.x = (r.width - (minX+maxX)*k)/2;
+  view.y = (r.height - (minY+maxY)*k)/2;
+  applyView();
+}
+function centerOnMe(){
+  if(!lastLayout || !lastLayout.pos[state.rootId]) return;
+  const pt = lastLayout.pos[state.rootId];
+  const r = svg.getBoundingClientRect();
+  if(view.k < 0.75) view.k = 1;
+  view.x = r.width/2 - (pt.x + CARD_W/2)*view.k;
+  view.y = r.height/2 - (pt.y + CARD_H/2)*view.k;
+  applyView();
+}
+
+const pointers = new Map();
+let panStart = null, pinchStart = null, didPan = false;
+svg.addEventListener('pointerdown', e => {
+  svg.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if(pointers.size === 1){
+    panStart = {x:e.clientX, y:e.clientY, vx:view.x, vy:view.y};
+    didPan = false;
+  } else if(pointers.size === 2){
+    const pts = [...pointers.values()];
+    pinchStart = {
+      d: Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y) || 1,
+      k: view.k, vx: view.x, vy: view.y,
+      mx: (pts[0].x+pts[1].x)/2, my: (pts[0].y+pts[1].y)/2
+    };
+    panStart = null;
+    didPan = true;
+  }
+});
+svg.addEventListener('pointermove', e => {
+  if(!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if(pinchStart && pointers.size === 2){
+    const pts = [...pointers.values()];
+    const d = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y) || 1;
+    const mx = (pts[0].x+pts[1].x)/2, my = (pts[0].y+pts[1].y)/2;
+    const k2 = clampK(pinchStart.k * d/pinchStart.d);
+    const ratio = k2/pinchStart.k;
+    view.k = k2;
+    view.x = mx - (pinchStart.mx - pinchStart.vx)*ratio;
+    view.y = my - (pinchStart.my - pinchStart.vy)*ratio;
+    didPan = true;
+    applyView();
+  } else if(panStart && pointers.size === 1){
+    const dx = e.clientX - panStart.x, dy = e.clientY - panStart.y;
+    if(Math.abs(dx)+Math.abs(dy) > 6) didPan = true;
+    view.x = panStart.vx + dx; view.y = panStart.vy + dy;
+    applyView();
+  }
+});
+function endPointer(e){
+  pointers.delete(e.pointerId);
+  if(pointers.size < 2) pinchStart = null;
+  if(pointers.size === 0) panStart = null;
+  else if(pointers.size === 1){
+    const pt = [...pointers.values()][0];
+    panStart = {x:pt.x, y:pt.y, vx:view.x, vy:view.y};
+  }
+}
+svg.addEventListener('pointerup', e => {
+  // setPointerCapture click hodisasini svg'ga qayta yo'naltiradi, shuning
+  // uchun bosilgan kartani click orqali emas, elementFromPoint bilan topamiz
+  const wasTap = !didPan && pointers.size === 1;
+  endPointer(e);
+  if(wasTap){
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const card = el && el.closest ? el.closest('.card') : null;
+    if(card) openSheet(card.getAttribute('data-id'));
+  }
+});
+svg.addEventListener('pointercancel', endPointer);
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoomAt(e.clientX, e.clientY, view.k * Math.exp(-e.deltaY*0.0016));
+}, {passive:false});
+
+/* ============ UI: umumiy ============ */
+const $ = id => document.getElementById(id);
+const backdrop = $('backdrop');
+function segVal(el){ const b = el.querySelector('button.on'); return b ? b.dataset.v : 'm'; }
+function segSet(el, v, lock){
+  el.querySelectorAll('button').forEach(b => {
+    b.classList.toggle('on', b.dataset.v === v);
+    b.disabled = !!lock && b.dataset.v !== v;
+  });
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('.seg button');
+  if(b && !b.disabled) b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b));
+});
+let toastTimer = null;
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 2300);
+}
+function closeLayers(){
+  $('sheet').hidden = true;
+  $('settingsSheet').hidden = true;
+  $('modal').hidden = true;
+  backdrop.hidden = true;
+}
+backdrop.addEventListener('click', closeLayers);
+
+/* ============ A'zo varag'i (sheet) ============ */
+function openSheet(id){
+  if(!state.persons[id]) return;
+  selectedId = id;
+  const p = P(id);
+  $('shAvatar').textContent = (p.name||'?').charAt(0).toUpperCase();
+  $('shAvatar').className = 'pAvatar ' + p.g;
+  $('shName').textContent = p.name;
+  const relTxt = (online.active && !online.myPersonId) ? '' : relationLabel(id);
+  $('shRel').textContent = relTxt;
+  $('shRel').parentElement.hidden = !relTxt;
+  const bits = [p.g==='m' ? 'Erkak' : 'Ayol'];
+  if(p.by) bits.push(p.by + '-yil');
+  bits.push(p.alive ? 'hayotda' : 'vafot etgan' + (p.dy ? ' ('+p.dy+')' : ''));
+  $('shMeta').textContent = bits.join(' · ');
+
+  const acts = [];
+  const mk = (role, label, ic, disabled, hint) =>
+    '<button class="actBtn" data-role="'+role+'" '+(disabled?'disabled':'')+' title="'+(hint||'')+'">'+icon(ic)+'<span>'+label+'</span></button>';
+  if(!p.fatherId) acts.push(mk('father','Ota','up'));
+  if(!p.motherId) acts.push(mk('mother','Ona','up'));
+  acts.push(mk('spouse',"Turmush o'rtoq",'heart'));
+  acts.push(mk('child','Farzand','down'));
+  acts.push(mk('sibling','Aka-uka / singil','users', !(p.fatherId||p.motherId), "Avval ota yoki onasini qo'shing"));
+  acts.push(mk('edit','Tahrirlash','pencil'));
+  if(online.active && !online.myPersonId && !p.claimed) acts.push(mk('claim','Bu — men','target'));
+  $('shActions').innerHTML = acts.join('');
+
+  const del = canDelete(id);
+  $('shDanger').innerHTML = id === state.rootId ? '' :
+    '<button class="dangerBtn" id="shDelete">'+icon('trash')+"<span>O'chirish</span></button>";
+  const delBtn = $('shDelete');
+  if(delBtn) delBtn.addEventListener('click', () => {
+    if(!del.ok){ toast(del.msg); return; }
+    $('shDanger').innerHTML =
+      '<div class="confirmBox"><p>'+escapeHtml(p.name)+" daraxtdan o'chirilsinmi?</p>"
+      + '<div class="row"><button class="btn small dangerFill" id="delYes">Ha, o\'chirish</button>'
+      + '<button class="btn small ghost" id="delNo">Bekor qilish</button></div></div>';
+    $('delYes').addEventListener('click', () => {
+      if(online.active){
+        apiMutate('/api/persons/' + id, 'DELETE', null, "O'chirildi: " + p.name);
+        return;
+      }
+      doDelete(id); closeLayers(); rerender(); toast("O'chirildi: " + p.name);
+    });
+    $('delNo').addEventListener('click', () => openSheet(id));
+  });
+
+  $('shActions').querySelectorAll('.actBtn').forEach(b => {
+    b.addEventListener('click', () => {
+      const role = b.getAttribute('data-role');
+      if(b.disabled) return;
+      if(role === 'edit') openModal({mode:'edit', personId:id});
+      else if(role === 'claim') apiMutate('/api/persons/' + id + '/claim', 'POST', null, 'Belgilandi: bu — siz');
+      else openModal({mode:'add', role, baseId:id});
+    });
+  });
+
+  $('settingsSheet').hidden = true;
+  $('modal').hidden = true;
+  backdrop.hidden = false;
+  $('sheet').hidden = false;
+}
+$('shClose').addEventListener('click', closeLayers);
+
+/* ============ Modal (qo'shish / tahrirlash) ============ */
+let modalCtx = null;
+const ROLE_META = {
+  father:{title:"Ota qo'shish", rel:'otasi', g:'m', lock:true},
+  mother:{title:"Ona qo'shish", rel:'onasi', g:'f', lock:true},
+  spouse:{title:"Turmush o'rtoq qo'shish", rel:"turmush o'rtog'i", lock:false},
+  child:{title:"Farzand qo'shish", rel:'farzandi', lock:false},
+  sibling:{title:"Aka-uka / opa-singil qo'shish", rel:'aka-uka yoki opa-singili', lock:false}
+};
+function openModal(ctx){
+  modalCtx = ctx;
+  $('mErr').textContent = '';
+  $('f_otherWrap').hidden = true;
+  if(ctx.mode === 'edit'){
+    const p = P(ctx.personId);
+    $('mTitle').textContent = 'Tahrirlash';
+    $('mCtx').textContent = p.name;
+    $('f_name').value = p.name;
+    segSet($('f_g'), p.g, false);
+    $('f_by').value = p.by || '';
+    $('f_alive').checked = !!p.alive;
+    $('f_dy').value = p.dy || '';
+    $('f_dyWrap').hidden = !!p.alive;
+  } else {
+    const meta = ROLE_META[ctx.role];
+    const base = P(ctx.baseId);
+    $('mTitle').textContent = meta.title;
+    $('mCtx').textContent = base.name + 'ning ' + meta.rel;
+    $('f_name').value = '';
+    let g = meta.g;
+    if(!g) g = ctx.role === 'spouse' ? (base.g === 'm' ? 'f' : 'm') : 'm';
+    segSet($('f_g'), g, !!meta.lock);
+    $('f_by').value = '';
+    $('f_alive').checked = true;
+    $('f_dy').value = '';
+    $('f_dyWrap').hidden = true;
+    if(ctx.role === 'child' && base.spouseIds.length){
+      const opts = base.spouseIds.map(s => '<option value="'+s+'">'+escapeHtml(P(s).name)+'</option>').join('');
+      $('f_other').innerHTML = opts + '<option value="">Ko\'rsatilmagan</option>';
+      $('f_otherWrap').hidden = false;
+    }
+  }
+  $('sheet').hidden = true;
+  backdrop.hidden = false;
+  $('modal').hidden = false;
+  setTimeout(() => $('f_name').focus(), 50);
+}
+$('f_alive').addEventListener('change', () => { $('f_dyWrap').hidden = $('f_alive').checked; });
+$('mClose').addEventListener('click', closeLayers);
+$('mSave').addEventListener('click', () => {
+  const name = $('f_name').value.trim();
+  if(!name){ $('mErr').textContent = 'Ismni kiriting'; return; }
+  const g = segVal($('f_g'));
+  const alive = $('f_alive').checked;
+  let by = parseInt($('f_by').value, 10); if(isNaN(by)) by = null;
+  let dy = alive ? null : parseInt($('f_dy').value, 10); if(isNaN(dy)) dy = null;
+  if(by !== null && (by < 1800 || by > THIS_YEAR)){ $('mErr').textContent = "Tug'ilgan yil noto'g'ri"; return; }
+  if(dy !== null && (dy < 1800 || dy > THIS_YEAR || (by !== null && dy < by))){ $('mErr').textContent = "Vafot yili noto'g'ri"; return; }
+  if(modalCtx.mode === 'edit'){
+    if(online.active){
+      apiMutate('/api/persons/' + modalCtx.personId, 'PATCH', {name, g, by, dy, alive}, 'Saqlandi: ' + name);
+      return;
+    }
+    const p = P(modalCtx.personId);
+    p.name = name; p.g = g; p.by = by; p.alive = alive; p.dy = dy;
+    closeLayers(); rerender(); toast('Saqlandi: ' + name);
+  } else {
+    const d = {name, g, by, dy, alive};
+    if(modalCtx.role === 'child' && !$('f_otherWrap').hidden) d.otherParentId = $('f_other').value || null;
+    if(online.active){
+      apiMutate('/api/persons', 'POST', {role: modalCtx.role, base_id: modalCtx.baseId,
+        other_parent_id: d.otherParentId || null, name, g, by, dy, alive}, "Qo'shildi: " + name);
+      return;
+    }
+    performAdd(modalCtx.role, modalCtx.baseId, d);
+    closeLayers();
+    rerender(Object.keys(state.persons).length <= 6 ? {fit:true} : undefined);
+    toast("Qo'shildi: " + name);
+  }
+});
+
+/* ============ Sozlamalar ============ */
+function openSettings(){
+  let rows = '';
+  if(online.active && (online.inviteUrl || online.inviteCode)){
+    const invShown = online.inviteUrl || ("Taklif kodi: " + online.inviteCode);
+    rows += '<div class="confirmBox"><p style="margin-bottom:6px">Qarindoshlarni taklif qilish</p>'
+      + '<div style="font-size:12.5px; word-break:break-all; color:var(--muted); margin-bottom:10px">' + escapeHtml(invShown) + '</div>'
+      + '<div class="row">'
+      + (online.inviteUrl ? '<button class="btn small primary" id="invShare">Telegramda ulashish</button>' : '')
+      + '<button class="btn small ghost" id="invCopy">Nusxalash</button></div></div>';
+  }
+  if(!online.active){
+    rows += '<button class="btn ghost" id="setDemo">Namuna oilani yuklash</button>'
+      + '<button class="btn ghost" id="setClear" style="color:var(--danger)">Hammasini o\'chirish</button>';
+  }
+  $('settRows').innerHTML = rows;
+  $('settNote').textContent = online.active
+    ? "Daraxt umumiy bazada saqlanadi — taklif havolasi orqali qo'shilgan qarindoshlaringiz ham shu daraxtni ko'radi va to'ldiradi."
+    : "Bu — MVP prototip rejimi: ma'lumotlar faqat shu qurilmada saqlanadi.";
+  if(online.active && (online.inviteUrl || online.inviteCode)){
+    const invValue = online.inviteUrl || online.inviteCode;
+    const sh = $('invShare');
+    if(sh) sh.addEventListener('click', () => {
+      const u = 'https://t.me/share/url?url=' + encodeURIComponent(online.inviteUrl)
+        + '&text=' + encodeURIComponent("Oilamiz shajarasiga qo'shiling!");
+      if(tg && tg.openTelegramLink){ tg.openTelegramLink(u); } else { window.open(u, '_blank'); }
+    });
+    $('invCopy').addEventListener('click', () => {
+      try{
+        navigator.clipboard.writeText(invValue).then(() => toast('Nusxalandi'), () => toast(invValue));
+      }catch(e){ toast(invValue); }
+    });
+  }
+  const sd = $('setDemo');
+  if(sd) sd.addEventListener('click', () => {
+    $('settRows').innerHTML =
+      '<div class="confirmBox"><p>Hozirgi daraxt o\'rniga namuna oila yuklanadi. Davom etilsinmi?</p>'
+      + '<div class="row"><button class="btn small primary" id="demoYes">Ha</button>'
+      + '<button class="btn small ghost" id="demoNo">Yo\'q</button></div></div>';
+    $('demoYes').addEventListener('click', () => { loadDemo(); closeLayers(); });
+    $('demoNo').addEventListener('click', openSettings);
+  });
+  const sc = $('setClear');
+  if(sc) sc.addEventListener('click', () => {
+    $('settRows').innerHTML =
+      '<div class="confirmBox"><p>Butun daraxt o\'chiriladi. Davom etilsinmi?</p>'
+      + '<div class="row"><button class="btn small dangerFill" id="clrYes">Ha, o\'chirish</button>'
+      + '<button class="btn small ghost" id="clrNo">Yo\'q</button></div></div>';
+    $('clrYes').addEventListener('click', () => {
+      state = null;
+      try{ localStorage.removeItem(LS_KEY); }catch(e){}
+      closeLayers(); showOnboard();
+    });
+    $('clrNo').addEventListener('click', openSettings);
+  });
+  $('sheet').hidden = true;
+  backdrop.hidden = false;
+  $('settingsSheet').hidden = false;
+}
+$('btnSettings').addEventListener('click', openSettings);
+$('setClose').addEventListener('click', closeLayers);
+
+/* ============ Namuna oila ============ */
+function loadDemo(){
+  state = {persons:{}, rootId:null, nextId:1};
+  const mk = (name, g, by, dy) => addPerson({name, g, by:by||null, dy:dy||null, alive:!dy});
+  const jumaboy = mk('Jumaboy','m',1938,2009);
+  const oynisa  = mk('Oynisa','f',1942);
+  linkSpouse(jumaboy, oynisa);
+  const tohir   = mk('Tohir','m',1940,2015);
+  const karomat = mk('Karomat','f',1945,2020);
+  linkSpouse(tohir, karomat);
+  const baxtiyor = mk('Baxtiyor','m',1965);
+  const gulnora  = mk('Gulnora','f',1968);
+  linkSpouse(baxtiyor, gulnora);
+  P(baxtiyor).fatherId = jumaboy; P(baxtiyor).motherId = oynisa;
+  P(gulnora).fatherId = tohir;    P(gulnora).motherId = karomat;
+  const olim = mk('Olim','m',1962);
+  P(olim).fatherId = jumaboy; P(olim).motherId = oynisa;
+  const dilbar = mk('Dilbar','f',1972);
+  P(dilbar).fatherId = tohir; P(dilbar).motherId = karomat;
+  const ilhom = mk('Ilhom','m',1992);
+  const madina = mk('Madina','f',1995);
+  linkSpouse(ilhom, madina);
+  P(ilhom).fatherId = baxtiyor; P(ilhom).motherId = gulnora;
+  const sardor = mk('Sardor','m',1988);
+  P(sardor).fatherId = baxtiyor; P(sardor).motherId = gulnora;
+  const nilufar = mk('Nilufar','f',1998);
+  P(nilufar).fatherId = baxtiyor; P(nilufar).motherId = gulnora;
+  const amir = mk('Amir','m',2018);
+  P(amir).fatherId = ilhom; P(amir).motherId = madina;
+  const soliha = mk('Soliha','f',2021);
+  P(soliha).fatherId = ilhom; P(soliha).motherId = madina;
+  state.rootId = ilhom;
+  hideOnboard();
+  rerender({fit:true});
+  toast('Namuna oila yuklandi');
+}
+
+/* ============ Onboarding ============ */
+function showOnboard(){ $('onboard').hidden = false; $('btnMe').hidden = true; $('stats').textContent = '—'; }
+function hideOnboard(){ $('onboard').hidden = true; $('btnMe').hidden = false; }
+$('obStart').addEventListener('click', () => {
+  const name = $('obName').value.trim();
+  if(!name){ $('obErr').textContent = 'Ismingizni kiriting'; return; }
+  let by = parseInt($('obYear').value, 10);
+  if(isNaN(by)) by = null;
+  if(by !== null && (by < 1850 || by > THIS_YEAR)){ $('obErr').textContent = "Tug'ilgan yil noto'g'ri"; return; }
+  if(online.candidate){
+    $('obStart').disabled = true;
+    api('/api/tree', 'POST', {name, g: segVal($('obG')), by})
+      .then(resp => { applyServerState(resp, {fit:true}); toast('Daraxt boshlandi — kartangizni bosing'); })
+      .catch(e => { $('obErr').textContent = e.message; })
+      .finally(() => { $('obStart').disabled = false; });
+    return;
+  }
+  state = {persons:{}, rootId:null, nextId:1};
+  state.rootId = addPerson({name, g:segVal($('obG')), by, alive:true});
+  hideOnboard();
+  rerender({fit:true});
+  toast('Daraxt boshlandi — kartangizni bosing');
+});
+$('obDemo').addEventListener('click', loadDemo);
+
+/* ============ Tugmalar ============ */
+$('btnZoomIn').innerHTML = icon('plus',20);
+$('btnZoomOut').innerHTML = icon('minus',20);
+$('btnFit').innerHTML = icon('fit',20);
+$('btnSettings').innerHTML = icon('gear',19);
+$('shClose').innerHTML = icon('x',18);
+$('setClose').innerHTML = icon('x',18);
+$('mClose').innerHTML = icon('x',18);
+$('btnMe').innerHTML = icon('target',17) + '<span>Menga</span>';
+function zoomCenter(f){
+  const r = svg.getBoundingClientRect();
+  zoomAt(r.left + r.width/2, r.top + r.height/2, view.k*f);
+}
+$('btnZoomIn').addEventListener('click', () => zoomCenter(1.3));
+$('btnZoomOut').addEventListener('click', () => zoomCenter(1/1.3));
+$('btnFit').addEventListener('click', fitView);
+$('btnMe').addEventListener('click', centerOnMe);
+
+/* ============ Telegram Mini App ============ */
+const twa = window.Telegram && window.Telegram.WebApp;
+const tg = (twa && twa.platform && twa.platform !== 'unknown') ? twa : null;
+function applyTgTheme(){
+  if(!tg) return;
+  const dark = tg.colorScheme === 'dark';
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  try{
+    if(tg.setBackgroundColor) tg.setBackgroundColor(dark ? '#121713' : '#f2f4ee');
+    if(tg.setHeaderColor) tg.setHeaderColor(dark ? '#1c231e' : '#ffffff');
+  }catch(e){}
+}
+if(tg){
+  try{
+    tg.ready();
+    tg.expand();
+    // daraxtni barmoq bilan surganda ilova pastga tortilib yopilib ketmasin
+    if(tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+    applyTgTheme();
+    if(tg.onEvent) tg.onEvent('themeChanged', applyTgTheme);
+    if(tg.BackButton){
+      tg.BackButton.onClick(() => closeLayers());
+      const layersObs = new MutationObserver(() => {
+        const open = !$('sheet').hidden || !$('settingsSheet').hidden || !$('modal').hidden;
+        try{ if(open) tg.BackButton.show(); else tg.BackButton.hide(); }catch(e){}
+      });
+      ['sheet','settingsSheet','modal'].forEach(id =>
+        layersObs.observe($(id), {attributes:true, attributeFilter:['hidden']}));
+    }
+    // Telegram foydalanuvchi ismini onboardingga oldindan yozib qo'yamiz
+    const u = tg.initDataUnsafe && tg.initDataUnsafe.user;
+    if(u && u.first_name && !$('obName').value) $('obName').value = u.first_name;
+  }catch(e){}
+}
+
+/* ============ Ishga tushirish ============ */
+online.candidate = !!(tg || DEV_USER);
+if(online.candidate){
+  bootOnline();
+} else {
+  state = loadState();
+  if(state){
+    hideOnboard();
+    rerender({fit:true});
+  } else {
+    showOnboard();
+  }
+}
+applyView();
+</script>
+</body>
+</html>
