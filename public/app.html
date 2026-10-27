@@ -127,6 +127,8 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
 .memRow small{color:var(--muted); font-weight:600}
 .memSelf{color:var(--muted); font-size:12px; font-weight:700; white-space:nowrap}
 .memRow .btn.small{padding:6px 10px; font-size:12.5px; flex:none; width:auto}
+.diagPre{font:600 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--muted);
+  white-space:pre-wrap; word-break:break-all; margin:0 0 10px; user-select:all; -webkit-user-select:all}
 /* Qo'shish oynasidagi "bu odam daraxtda bor" taklifi */
 #mSuggest p{margin:4px 0 12px; color:var(--muted); font-size:14px}
 #mSuggest .sresult{border:1px solid var(--line); margin-bottom:8px}
@@ -464,7 +466,7 @@ function icon(n, s){ s = s || 18;
 
 /* ============ Holat va saqlash ============ */
 const LS_KEY = 'shajara_v1';
-const APP_VER = '27.10-10'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
+const APP_VER = '27.10-11'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
 const CARD_W = 128, CARD_H = 56, SP_GAP = 18, BLOCK_GAP = 40, SIB_GAP = 28, GROUP_GAP = 64, ROW_H = 150, BUS_DROP = 26;
 const THIS_YEAR = new Date().getFullYear();
 let state = null;          // {persons:{id:{...}}, rootId, nextId}
@@ -1418,6 +1420,7 @@ function openSettings(){
     rows += '<button class="btn ghost" id="setDemo">Namuna oilani yuklash</button>'
       + '<button class="btn ghost" id="setClear" style="color:var(--danger)">Hammasini o\'chirish</button>';
   }
+  rows += '<button class="btn ghost" id="setDiag">Diagnostika</button>';
   $('settRows').innerHTML = rows;
   $('settNote').textContent = (online.active
     ? "Daraxt umumiy bazada saqlanadi — taklif havolasi orqali qo'shilgan qarindoshlaringiz ham shu daraxtni ko'radi va to'ldiradi."
@@ -1471,9 +1474,39 @@ function openSettings(){
     });
     $('clrNo').addEventListener('click', openSettings);
   });
+  const dg = $('setDiag');
+  if(dg) dg.addEventListener('click', () => {
+    const txt = diagText();
+    $('settRows').innerHTML =
+      '<div class="confirmBox"><p style="margin-bottom:6px">Diagnostika — muammo bo\'lsa shu matnni yuboring</p>'
+      + '<pre class="diagPre">' + escapeHtml(txt) + '</pre>'
+      + '<div class="row"><button class="btn small primary" id="diagCopy">Nusxalash</button>'
+      + '<button class="btn small ghost" id="diagBack">Orqaga</button></div></div>';
+    $('diagCopy').addEventListener('click', () => {
+      try{
+        navigator.clipboard.writeText(txt).then(() => toast('Nusxalandi'), () => toast("Qo'lda belgilab nusxalang"));
+      }catch(e){ toast("Qo'lda belgilab nusxalang"); }
+    });
+    $('diagBack').addEventListener('click', openSettings);
+  });
   $('sheet').hidden = true;
   backdrop.hidden = false;
   $('settingsSheet').hidden = false;
+}
+/* Qurilma holati — uzoqdan nosozlik aniqlash uchun */
+function diagText(){
+  const vv = window.visualViewport;
+  const cssVar = getComputedStyle(document.documentElement)
+    .getPropertyValue('--tg-viewport-stable-height').trim();
+  return [
+    'Shajara ' + APP_VER + ' · ' + (online.active ? 'onlayn' : 'lokal') + ' rejim',
+    'Telegram: ' + (tg ? ('v' + (tg.version || '?') + ' · ' + (tg.platform || '?')) : "yo'q (oddiy brauzer)"),
+    'TG viewport: ' + (tg ? ((tg.viewportHeight || '?') + ' / stable ' + (tg.viewportStableHeight || '?')) : '—'),
+    'CSS stable-height: ' + (cssVar || "yo'q"),
+    'Oyna: ' + window.innerWidth + 'x' + window.innerHeight + ' · dpr ' + window.devicePixelRatio,
+    'visualViewport: ' + (vv ? (Math.round(vv.width) + 'x' + Math.round(vv.height) + ' · offset ' + Math.round(vv.offsetTop)) : '—'),
+    'UA: ' + navigator.userAgent
+  ].join('\n');
 }
 $('btnSettings').addEventListener('click', openSettings);
 
@@ -1628,8 +1661,11 @@ if(tg){
     // Haqiqiy ko'rinadigan balandlikni CSS'ga yozamiz (eski klientlarda
     // Telegram o'zi inject qilmasligi mumkin)
     const setTgVh = () => {
-      if(tg.viewportStableHeight)
-        document.documentElement.style.setProperty('--tg-viewport-stable-height', tg.viewportStableHeight + 'px');
+      if(tg.viewportStableHeight){
+        // Ba'zi qurilmalarda noto'g'ri (katta) qiymat kelishi mumkin — chegaralaymiz
+        const h = Math.min(Math.round(tg.viewportStableHeight), window.innerHeight);
+        if(h > 200) document.documentElement.style.setProperty('--tg-viewport-stable-height', h + 'px');
+      }
     };
     setTgVh();
     if(tg.onEvent) tg.onEvent('viewportChanged', setTgVh);
