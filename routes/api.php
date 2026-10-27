@@ -1,9 +1,13 @@
 <?php
 
 use App\Http\Controllers\PersonController;
+use App\Http\Controllers\TelegramWebhookController;
 use App\Http\Controllers\TreeController;
 use App\Http\Middleware\TelegramAuth;
 use Illuminate\Support\Facades\Route;
+
+// Bot webhook — Telegram'ning o'zi chaqiradi (secret token bilan himoyalangan)
+Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle']);
 
 Route::middleware([TelegramAuth::class])->group(function () {
     Route::get('/state', [TreeController::class, 'state']);

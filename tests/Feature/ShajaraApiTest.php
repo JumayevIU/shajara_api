@@ -195,6 +195,32 @@ class ShajaraApiTest extends TestCase
         $this->assertContains($momId, $r->json('state.persons.'.$dadId.'.spouseIds'));
     }
 
+    public function test_telegram_webhook_replies_with_app_button(): void
+    {
+        config(['services.telegram.webhook_secret' => 'test-secret']);
+        \Illuminate\Support\Facades\Http::fake();
+
+        $this->postJson('/api/telegram/webhook', [
+            'message' => ['chat' => ['id' => 55, 'type' => 'private'], 'text' => '/start'],
+        ], ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'])->assertOk();
+
+        \Illuminate\Support\Facades\Http::assertSent(fn ($r) => str_contains($r->url(), '/sendMessage')
+            && $r['chat_id'] === 55
+            && str_contains($r['reply_markup']['inline_keyboard'][0][0]['url'] ?? '', 't.me/'));
+
+        // Noto'g'ri secret — rad etiladi
+        $this->postJson('/api/telegram/webhook', [
+            'message' => ['chat' => ['id' => 55, 'type' => 'private'], 'text' => 'salom'],
+        ], ['X-Telegram-Bot-Api-Secret-Token' => 'boshqa'])->assertStatus(403);
+
+        // Guruh xabariga javob yuborilmaydi
+        \Illuminate\Support\Facades\Http::fake();
+        $this->postJson('/api/telegram/webhook', [
+            'message' => ['chat' => ['id' => -100, 'type' => 'group'], 'text' => '/start'],
+        ], ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'])->assertOk();
+        \Illuminate\Support\Facades\Http::assertNothingSent();
+    }
+
     public function test_personal_invite_preview_and_join(): void
     {
         $a = $this->dev(1, 'Ilhom');
