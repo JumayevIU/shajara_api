@@ -1,6 +1,6 @@
 # Serverga joylash (VPS, nginx + PHP)
 
-Front va back bitta loyihada: Laravel `/` da mini app sahifasini, `/api/...` da APIni beradi. Bitta subdomen yetadi, masalan `shajara.<domeningiz>`.
+Front va back bitta loyihada: Laravel `/` da mini app sahifasini, `/api/...` da APIni beradi. Domen: **shajara.uz** (Ahost'dan olingan, A-yozuvi VPS'ga qaraydi).
 
 ## Talablar
 
@@ -8,6 +8,19 @@ Front va back bitta loyihada: Laravel `/` da mini app sahifasini, `/api/...` da 
 - Composer
 - nginx + php-fpm (uzrict loyihalaringiz ishlab turgan server mos keladi)
 - HTTPS **majburiy** — Telegram mini app faqat HTTPS URL ochadi (certbot bepul)
+
+## DNS (Ahost)
+
+Ahost kabinetida `shajara.uz` uchun DNS yozuvlari:
+
+| Turi | Host | Qiymat |
+|------|------|--------|
+| A    | @    | VPS IP manzili |
+| A    | www  | VPS IP manzili |
+
+VPS IP — uzrict loyihalari turgan serverning IP'si (serverda `curl -4 ifconfig.me` ko'rsatadi). MX/TXT hozircha kerak emas.
+
+Tekshirish: `dig +short shajara.uz` server IP'sini qaytarsa — tayyor (odatda 15 daqiqa – 2 soat ichida tarqaladi).
 
 ## Qadamlar
 
@@ -30,7 +43,7 @@ php artisan key:generate
 ```
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://shajara.<domeningiz>
+APP_URL=https://shajara.uz
 
 # Boshlanishiga SQLite yetadi (alohida baza serveri kerak emas):
 DB_CONNECTION=sqlite
@@ -58,7 +71,7 @@ php artisan config:cache && php artisan route:cache
 ```nginx
 server {
     listen 80;
-    server_name shajara.<domeningiz>;
+    server_name shajara.uz www.shajara.uz;
     root /var/www/shajara/public;
     index index.php;
 
@@ -80,12 +93,12 @@ ln -s /etc/nginx/sites-available/shajara /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
 
 # HTTPS (DNS A-yozuvi serverga qaragach):
-certbot --nginx -d shajara.<domeningiz>
+certbot --nginx -d shajara.uz -d www.shajara.uz
 ```
 
 ## Telegram'ga ulash
 
-1. @BotFather → `/myapps` → Shajara → **Edit Web App URL** → `https://shajara.<domeningiz>/`
+1. @BotFather → `/myapps` → Shajara → **Edit Web App URL** → `https://shajara.uz/`
 2. Menu Button ishlatilsa: `/mybots` → Bot Settings → Menu Button → shu URL
 3. Tekshirish: `t.me/shajaralarim_bot/shajara` oching — daraxt endi umumiy bazada saqlanadi, sozlamalarda taklif havolasi chiqadi
 
