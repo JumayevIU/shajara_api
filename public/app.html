@@ -62,7 +62,9 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:2px soli
 /* 16px — iOS fokusda sahifani avtozoom qilmasligi uchun (16px dan kichikda zoom qiladi) */
 input,select{font-family:inherit; font-size:16px; color:var(--ink)}
 
-#app{height:100%; display:flex; flex-direction:column}
+/* Telegram'da haqiqiy ko'rinadigan balandlik (--tg-viewport-stable-height):
+   Android'da webview pastki qismi ekrandan tashqarida bo'lishi mumkin */
+#app{height:100%; height:var(--tg-viewport-stable-height, 100%); display:flex; flex-direction:column}
 
 /* ---- Sarlavha ---- */
 #topbar{
@@ -186,13 +188,18 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
 /* ---- Pastki varaq (sheet) ---- */
 #backdrop{position:fixed; inset:0; background:rgba(10,16,12,.45); z-index:40; opacity:1; transition:opacity .18s}
 .sheet{
-  position:fixed; left:0; right:0; bottom:0; z-index:50;
+  position:fixed; left:0; right:0; z-index:50;
+  /* Android Telegram: ko'rinadigan maydon pastiga yopishsin, kesilmasin */
+  bottom:0;
+  bottom:calc(100vh - var(--tg-viewport-stable-height, 100vh));
   background:var(--surface); border-radius:22px 22px 0 0; box-shadow:var(--sheet-shadow);
   padding-top:8px;
   padding-bottom:calc(18px + env(safe-area-inset-bottom, 0px));
   padding-left:max(18px, env(safe-area-inset-left, 0px));
   padding-right:max(18px, env(safe-area-inset-right, 0px));
-  max-height:78vh; overflow-y:auto;
+  max-height:78vh;
+  max-height:calc(var(--tg-viewport-stable-height, 100vh) - 56px);
+  overflow-y:auto;
 }
 .grabber{width:40px; height:4px; border-radius:2px; background:var(--line); margin:4px auto 14px}
 .pHead{display:flex; align-items:flex-start; gap:13px}
@@ -237,7 +244,7 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
   background:var(--surface); border-radius:22px; width:100%; max-width:430px;
   padding:20px 18px calc(18px + env(safe-area-inset-bottom, 0px));
   max-height:calc(90vh - 20px);
-  max-height:calc(100dvh - var(--kb, 0px) - 70px);
+  max-height:calc(min(100dvh, var(--tg-viewport-stable-height, 100dvh)) - var(--kb, 0px) - 70px);
   overflow-y:auto; box-shadow:var(--card-shadow);
 }
 @media (min-width:560px){ .modalWrap{align-items:center} .modalCard{padding-bottom:20px} }
@@ -457,7 +464,7 @@ function icon(n, s){ s = s || 18;
 
 /* ============ Holat va saqlash ============ */
 const LS_KEY = 'shajara_v1';
-const APP_VER = '27.10-9'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
+const APP_VER = '27.10-10'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
 const CARD_W = 128, CARD_H = 56, SP_GAP = 18, BLOCK_GAP = 40, SIB_GAP = 28, GROUP_GAP = 64, ROW_H = 150, BUS_DROP = 26;
 const THIS_YEAR = new Date().getFullYear();
 let state = null;          // {persons:{id:{...}}, rootId, nextId}
@@ -1618,6 +1625,14 @@ if(tg){
   try{
     tg.ready();
     tg.expand();
+    // Haqiqiy ko'rinadigan balandlikni CSS'ga yozamiz (eski klientlarda
+    // Telegram o'zi inject qilmasligi mumkin)
+    const setTgVh = () => {
+      if(tg.viewportStableHeight)
+        document.documentElement.style.setProperty('--tg-viewport-stable-height', tg.viewportStableHeight + 'px');
+    };
+    setTgVh();
+    if(tg.onEvent) tg.onEvent('viewportChanged', setTgVh);
     // daraxtni barmoq bilan surganda ilova pastga tortilib yopilib ketmasin
     if(tg.disableVerticalSwipes) tg.disableVerticalSwipes();
     applyTgTheme();
