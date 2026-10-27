@@ -59,7 +59,7 @@ button{font-family:inherit; font-size:inherit; color:inherit; background:none; b
 button:focus-visible, input:focus-visible, select:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:8px}
 input,select{font-family:inherit; font-size:inherit; color:var(--ink)}
 
-#app{height:100%; display:flex; flex-direction:column}
+#app{height:100%; display:flex; flex-direction:column; transition:height .18s ease}
 
 /* ---- Sarlavha ---- */
 #topbar{
@@ -85,6 +85,39 @@ input,select{font-family:inherit; font-size:inherit; color:var(--ink)}
   color:var(--muted); border:1px solid var(--line); background:var(--surface); flex:none;
 }
 .iconbtn:hover{color:var(--ink); border-color:var(--edge)}
+
+/* ---- Qidiruv ---- */
+#searchBar{
+  position:absolute; z-index:6; top:10px; left:max(14px, env(safe-area-inset-left,0px));
+  right:max(14px, env(safe-area-inset-right,0px)); max-width:420px;
+  display:flex; gap:8px; align-items:center;
+}
+#searchBar[hidden], #searchResults[hidden]{display:none}
+#searchBar input{
+  flex:1; min-width:0; height:40px; border-radius:12px; border:1px solid var(--line); background:var(--surface);
+  color:var(--ink); font:600 14px var(--font-ui); padding:0 13px; outline:none;
+}
+#searchBar input:focus{border-color:var(--accent)}
+#searchResults{
+  position:absolute; z-index:6; top:58px; left:max(14px, env(safe-area-inset-left,0px));
+  right:max(14px, env(safe-area-inset-right,0px)); max-width:420px; max-height:46vh; overflow:auto;
+  background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  box-shadow:0 10px 28px rgba(23,42,33,.14); padding:5px;
+}
+.sresult{
+  display:flex; width:100%; align-items:center; gap:10px; padding:9px 10px; border-radius:10px;
+  border:0; background:transparent; cursor:pointer; text-align:left; font-family:var(--font-ui);
+}
+.sresult:hover{background:var(--accent-soft)}
+.sresult .sr-ava{width:30px; height:30px; border-radius:50%; flex:none; display:flex; align-items:center;
+  justify-content:center; font:600 13px var(--font-display)}
+.sresult.m .sr-ava{background:var(--male-soft); color:var(--male)}
+.sresult.f .sr-ava{background:var(--female-soft); color:var(--female)}
+.sresult b{display:block; font-size:14px; color:var(--ink)}
+.sresult span span{display:block; font-size:11.5px; color:var(--muted); font-weight:600}
+.sempty{padding:12px; text-align:center; color:var(--muted); font-size:13px; font-weight:600}
+.card.flash .cardbg{animation:flashCard 1.8s ease}
+@keyframes flashCard{0%,55%{stroke:var(--gold); stroke-width:3}}
 
 /* ---- Kanvas ---- */
 #canvasWrap{position:relative; flex:1; min-height:0; overflow:hidden;
@@ -256,12 +289,18 @@ input,select{font-family:inherit; font-size:inherit; color:var(--ink)}
     </div>
     <div class="hright">
       <div id="stats" class="chip">—</div>
+      <button id="btnSearch" class="iconbtn" aria-label="Qidirish"></button>
       <button id="btnSettings" class="iconbtn" aria-label="Sozlamalar"></button>
     </div>
   </header>
 
   <div id="canvasWrap">
     <svg id="svg" aria-label="Oila daraxti"><g id="world"></g></svg>
+    <div id="searchBar" hidden>
+      <input id="searchInput" type="search" placeholder="Ism bo'yicha qidirish…" autocomplete="off" enterkeyhint="search">
+      <button id="searchClose" class="iconbtn" aria-label="Yopish"></button>
+    </div>
+    <div id="searchResults" hidden></div>
     <div id="hintBar" hidden>Kartani bosing — qarindosh qo'shish shu yerdan boshlanadi</div>
     <button id="btnMe" hidden></button>
     <div class="fabs">
@@ -385,6 +424,7 @@ const IC = {
   pencil:'<path d="M4 20v-3.5L16.2 4.3a2 2 0 0 1 2.8 2.8L6.8 19.3 4 20z"/>',
   trash:'<path d="M4 7h16M9.5 7V5h5v2M6.5 7l.9 13h9.2l.9-13"/>',
   x:'<path d="M6 6l12 12M18 6L6 18"/>',
+  search:'<circle cx="11" cy="11" r="6.2"/><path d="M20.2 20.2 15.6 15.6"/>',
   heart:'<path d="M12 20S4.6 15.3 3.1 11c-1-3 1.2-6 4.2-6C9.4 5 11 6.6 12 8c1-1.4 2.6-3 4.7-3 3 0 5.2 3 4.2 6C19.4 15.3 12 20 12 20z"/>',
   up:'<path d="M12 19V6M6.5 11.5 12 6l5.5 5.5"/>',
   down:'<path d="M12 5v13M6.5 12.5 12 18l5.5-5.5"/>',
@@ -943,6 +983,21 @@ function centerOnMe(){
   view.y = r.height/2 - (pt.y + CARD_H/2)*view.k;
   applyView();
 }
+function centerOnPerson(id){
+  if(!lastLayout || !lastLayout.pos[id]) return;
+  const pt = lastLayout.pos[id];
+  const r = svg.getBoundingClientRect();
+  if(view.k < 0.75) view.k = 1;
+  view.x = r.width/2 - (pt.x + CARD_W/2)*view.k;
+  view.y = r.height/2 - (pt.y + CARD_H/2)*view.k;
+  applyView();
+  const el = world.querySelector('.card[data-id="'+id+'"]');
+  if(el){
+    el.classList.remove('flash');
+    requestAnimationFrame(() => el.classList.add('flash'));
+    setTimeout(() => el.classList.remove('flash'), 1900);
+  }
+}
 
 const pointers = new Map();
 let panStart = null, pinchStart = null, didPan = false;
@@ -1245,6 +1300,55 @@ function openSettings(){
   $('settingsSheet').hidden = false;
 }
 $('btnSettings').addEventListener('click', openSettings);
+
+/* ============ Qidiruv ============ */
+const searchBar = $('searchBar'), searchInput = $('searchInput'), searchResults = $('searchResults');
+function normName(s){ return (s||'').toLowerCase().replace(/[ʻʼ‘’`]/g, "'"); }
+function openSearch(){
+  if(!state) return;
+  searchBar.hidden = false;
+  searchResults.hidden = true;
+  searchInput.value = '';
+  searchInput.focus();
+}
+function closeSearch(){
+  searchBar.hidden = true;
+  searchResults.hidden = true;
+  searchInput.blur();
+}
+function renderSearch(){
+  const q = normName(searchInput.value.trim());
+  if(!q){ searchResults.hidden = true; return; }
+  const hits = Object.values(state.persons).filter(p => normName(p.name).includes(q)).slice(0, 12);
+  searchResults.hidden = false;
+  if(!hits.length){ searchResults.innerHTML = '<div class="sempty">Hech kim topilmadi</div>'; return; }
+  const hasRoot = state.rootId && state.persons[state.rootId];
+  searchResults.innerHTML = hits.map(p => {
+    const sub = [hasRoot ? relationLabel(p.id) : '', yearsStr(p)].filter(Boolean).join(' · ');
+    return '<button class="sresult '+p.g+'" data-id="'+p.id+'">'
+      + '<span class="sr-ava">'+escapeHtml((p.name||'?').charAt(0).toUpperCase())+'</span>'
+      + '<span style="min-width:0"><b>'+escapeHtml(p.name||'—')+'</b>'
+      + (sub ? '<span>'+escapeHtml(sub)+'</span>' : '')
+      + '</span></button>';
+  }).join('');
+}
+$('btnSearch').addEventListener('click', () => searchBar.hidden ? openSearch() : closeSearch());
+$('searchClose').addEventListener('click', closeSearch);
+searchInput.addEventListener('input', renderSearch);
+searchInput.addEventListener('keydown', e => {
+  if(e.key === 'Escape') closeSearch();
+  if(e.key === 'Enter'){
+    const first = searchResults.querySelector('.sresult');
+    if(first){ const id = first.dataset.id; closeSearch(); centerOnPerson(id); }
+  }
+});
+searchResults.addEventListener('click', e => {
+  const b = e.target.closest('.sresult');
+  if(!b) return;
+  const id = b.dataset.id;
+  closeSearch();
+  centerOnPerson(id);
+});
 $('setClose').addEventListener('click', closeLayers);
 
 /* ============ Namuna oila ============ */
@@ -1314,6 +1418,8 @@ $('btnZoomIn').innerHTML = icon('plus',20);
 $('btnZoomOut').innerHTML = icon('minus',20);
 $('btnFit').innerHTML = icon('fit',20);
 $('btnSettings').innerHTML = icon('gear',19);
+$('btnSearch').innerHTML = icon('search',19);
+$('searchClose').innerHTML = icon('x',18);
 $('shClose').innerHTML = icon('x',18);
 $('setClose').innerHTML = icon('x',18);
 $('mClose').innerHTML = icon('x',18);
@@ -1361,6 +1467,30 @@ if(tg){
     if(u && u.first_name && !$('obName').value) $('obName').value = u.first_name;
   }catch(e){}
 }
+
+/* Klaviatura ochilib-yopilganda ilova sakramasligi uchun: matn maydoni
+   fokusda ekan #app balandligini muzlatamiz — webview qisqarsa ham
+   daraxt va sarlavha qimirlamaydi, pastki oynalar esa (fixed) klaviatura
+   ustida qoladi. Fokus ketgach balandlik qaytariladi. */
+const appEl = document.getElementById('app');
+let kbFrozen = false;
+document.addEventListener('focusin', e => {
+  if(!(e.target.matches && e.target.matches('input, select, textarea'))) return;
+  if(!kbFrozen){
+    appEl.style.height = appEl.getBoundingClientRect().height + 'px';
+    kbFrozen = true;
+  }
+});
+document.addEventListener('focusout', () => {
+  setTimeout(() => {
+    const f = document.activeElement;
+    if(f && f.matches && f.matches('input, select, textarea')) return;
+    appEl.style.height = '';
+    kbFrozen = false;
+    window.scrollTo(0, 0);
+  }, 60);
+});
+window.addEventListener('scroll', () => { if(window.scrollY) window.scrollTo(0, 0); });
 
 /* ============ Ishga tushirish ============ */
 online.candidate = !!(tg || DEV_USER);
