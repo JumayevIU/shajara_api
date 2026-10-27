@@ -217,18 +217,20 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
 .noteTxt{color:var(--muted); font-size:12.5px; margin-top:14px; line-height:1.5}
 
 /* ---- Modal ---- */
-.modalWrap{position:fixed; inset:0; z-index:60; display:flex; align-items:flex-end; justify-content:center;
+/* Forma EKRAN TEPASIDA ochiladi: klaviatura pastda, forma tepada —
+   hech narsa ko'tarilmaydi, siqilmaydi, sakramaydi (ayniqsa iOS Telegram) */
+.modalWrap{position:fixed; inset:0; z-index:60; display:flex; align-items:flex-start; justify-content:center;
   background:rgba(10,16,12,.45);
   padding-left:max(16px, env(safe-area-inset-left, 0px));
   padding-right:max(16px, env(safe-area-inset-right, 0px));
-  padding-block:16px;
-  /* ochiq klaviatura ustida tursin (iOS webview o'zi surib bermaydi) */
-  padding-bottom:calc(16px + var(--kb, 0px));
+  padding-block:10px;
 }
 .modalCard{
   background:var(--surface); border-radius:22px; width:100%; max-width:430px;
   padding:20px 18px calc(18px + env(safe-area-inset-bottom, 0px));
-  max-height:calc(90vh - var(--kb, 0px)); overflow-y:auto; box-shadow:var(--card-shadow);
+  max-height:calc(90vh - 20px);
+  max-height:calc(100dvh - var(--kb, 0px) - 70px);
+  overflow-y:auto; box-shadow:var(--card-shadow);
 }
 @media (min-width:560px){ .modalWrap{align-items:center} .modalCard{padding-bottom:20px} }
 .mHead{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:2px}
@@ -1622,7 +1624,9 @@ document.addEventListener('focusout', () => {
    (masalan Saqlash tugmasi bilan) klaviatura ustiga ko'tariladi */
 function updateKb(){
   const vv = window.visualViewport;
-  const kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+  let kb = vv ? window.innerHeight - vv.height - vv.offsetTop : 0;
+  // Faqat ishonchli oraliqda: salbiy yoki ekranning yarmidan katta qiymat — xato o'lchov
+  kb = Math.max(0, Math.min(kb, window.innerHeight * 0.55));
   document.documentElement.style.setProperty('--kb', Math.round(kb) + 'px');
   if(window.scrollY) window.scrollTo(0, 0);
 }
@@ -1630,6 +1634,7 @@ if(window.visualViewport){
   visualViewport.addEventListener('resize', updateKb);
   visualViewport.addEventListener('scroll', updateKb);
 }
+window.addEventListener('resize', updateKb);
 window.addEventListener('scroll', () => { if(window.scrollY) window.scrollTo(0, 0); });
 
 /* Klaviaturadagi Enter/Done — formani to'g'ridan-to'g'ri saqlaydi
