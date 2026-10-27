@@ -2,7 +2,7 @@
 <html lang="uz">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Shajara</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&display=swap">
@@ -57,7 +57,8 @@ body{
 [hidden]{display:none!important}
 button{font-family:inherit; font-size:inherit; color:inherit; background:none; border:none; padding:0; cursor:pointer}
 button:focus-visible, input:focus-visible, select:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:8px}
-input,select{font-family:inherit; font-size:inherit; color:var(--ink)}
+/* 16px — iOS fokusda sahifani avtozoom qilmasligi uchun (16px dan kichikda zoom qiladi) */
+input,select{font-family:inherit; font-size:16px; color:var(--ink)}
 
 #app{height:100%; display:flex; flex-direction:column; transition:height .18s ease}
 
@@ -95,7 +96,7 @@ input,select{font-family:inherit; font-size:inherit; color:var(--ink)}
 #searchBar[hidden], #searchResults[hidden]{display:none}
 #searchBar input{
   flex:1; min-width:0; height:40px; border-radius:12px; border:1px solid var(--line); background:var(--surface);
-  color:var(--ink); font:600 14px var(--font-ui); padding:0 13px; outline:none;
+  color:var(--ink); font:600 16px var(--font-ui); padding:0 13px; outline:none;
 }
 #searchBar input:focus{border-color:var(--accent)}
 #searchResults{
@@ -216,11 +217,13 @@ input,select{font-family:inherit; font-size:inherit; color:var(--ink)}
   padding-left:max(16px, env(safe-area-inset-left, 0px));
   padding-right:max(16px, env(safe-area-inset-right, 0px));
   padding-block:16px;
+  /* ochiq klaviatura ustida tursin (iOS webview o'zi surib bermaydi) */
+  padding-bottom:calc(16px + var(--kb, 0px));
 }
 .modalCard{
   background:var(--surface); border-radius:22px; width:100%; max-width:430px;
   padding:20px 18px calc(18px + env(safe-area-inset-bottom, 0px));
-  max-height:90vh; overflow-y:auto; box-shadow:var(--card-shadow);
+  max-height:calc(90vh - var(--kb, 0px)); overflow-y:auto; box-shadow:var(--card-shadow);
 }
 @media (min-width:560px){ .modalWrap{align-items:center} .modalCard{padding-bottom:20px} }
 .mHead{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:2px}
@@ -324,7 +327,7 @@ input,select{font-family:inherit; font-size:inherit; color:var(--ink)}
     <p>O'zingizdan boshlang — ota-ona, bobo-buvi, turmush o'rtoq va farzandlarni birma-bir qo'shib, butun shajarani bitta daraxtda ko'ring.</p>
     <div class="field">
       <label for="obName">Ismingiz</label>
-      <input type="text" id="obName" maxlength="30" placeholder="Masalan: Ilhom" autocomplete="off">
+      <input type="text" id="obName" maxlength="30" placeholder="Masalan: Ilhom" autocomplete="off" enterkeyhint="done">
     </div>
     <div class="field">
       <label>Jinsingiz</label>
@@ -335,7 +338,7 @@ input,select{font-family:inherit; font-size:inherit; color:var(--ink)}
     </div>
     <div class="field">
       <label for="obYear">Tug'ilgan yil (ixtiyoriy)</label>
-      <input type="number" id="obYear" inputmode="numeric" placeholder="1992">
+      <input type="number" id="obYear" inputmode="numeric" placeholder="1992" enterkeyhint="done">
     </div>
     <p class="formErr" id="obErr"></p>
     <button class="btn primary" id="obStart">Daraxtni boshlash</button>
@@ -379,7 +382,7 @@ input,select{font-family:inherit; font-size:inherit; color:var(--ink)}
     <p class="mCtx" id="mCtx"></p>
     <div class="field">
       <label for="f_name">Ismi</label>
-      <input type="text" id="f_name" maxlength="30" autocomplete="off" placeholder="Ism kiriting">
+      <input type="text" id="f_name" maxlength="30" autocomplete="off" placeholder="Ism kiriting" enterkeyhint="done">
     </div>
     <div class="field">
       <label>Jinsi</label>
@@ -398,11 +401,11 @@ input,select{font-family:inherit; font-size:inherit; color:var(--ink)}
     <div class="twoCol">
       <div class="field">
         <label for="f_by">Tug'ilgan yil</label>
-        <input type="number" id="f_by" inputmode="numeric" placeholder="—">
+        <input type="number" id="f_by" inputmode="numeric" placeholder="—" enterkeyhint="done">
       </div>
       <div class="field" id="f_dyWrap" hidden>
         <label for="f_dy">Vafot yili</label>
-        <input type="number" id="f_dy" inputmode="numeric" placeholder="—">
+        <input type="number" id="f_dy" inputmode="numeric" placeholder="—" enterkeyhint="done">
       </div>
     </div>
     <p class="formErr" id="mErr"></p>
@@ -1551,7 +1554,30 @@ document.addEventListener('focusout', () => {
     window.scrollTo(0, 0);
   }, 60);
 });
+/* Klaviatura balandligini --kb o'zgaruvchisiga yozamiz: ochiq formalar
+   (masalan Saqlash tugmasi bilan) klaviatura ustiga ko'tariladi */
+function updateKb(){
+  const vv = window.visualViewport;
+  const kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+  document.documentElement.style.setProperty('--kb', Math.round(kb) + 'px');
+  if(window.scrollY) window.scrollTo(0, 0);
+}
+if(window.visualViewport){
+  visualViewport.addEventListener('resize', updateKb);
+  visualViewport.addEventListener('scroll', updateKb);
+}
 window.addEventListener('scroll', () => { if(window.scrollY) window.scrollTo(0, 0); });
+
+/* Klaviaturadagi Enter/Done — formani to'g'ridan-to'g'ri saqlaydi
+   (avval klaviaturani yopib o'tirish shart emas) */
+[['f_name','mSave'],['f_by','mSave'],['f_dy','mSave'],['obName','obStart'],['obYear','obStart']]
+.forEach(([inp, btn]) => {
+  const el = $(inp);
+  if(!el) return;
+  el.addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); el.blur(); $(btn).click(); }
+  });
+});
 
 /* ============ Ishga tushirish ============ */
 online.candidate = !!(tg || DEV_USER);
