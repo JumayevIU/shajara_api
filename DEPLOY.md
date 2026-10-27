@@ -100,6 +100,25 @@ certbot --nginx -d xn--ajara-idb.uz -d www.xn--ajara-idb.uz
 2. Menu Button ishlatilsa: `/mybots` → Bot Settings → Menu Button → shu URL
 3. Tekshirish: `t.me/shajaralarim_bot/shajara` oching — daraxt endi umumiy bazada saqlanadi, sozlamalarda taklif havolasi chiqadi
 
+## Backup va tiklash
+
+Kunlik backup o'rnatilgan (2026-10-27): har kuni 02:30 da `/usr/local/bin/shajara-backup.sh`
+(cron: `/etc/cron.d/shajara-backup`) bazadan siqilgan nusxa oladi, 14 kunlik tarix saqlanadi.
+
+```bash
+# Nusxalar ro'yxati
+ls -lh /var/backups/shajara/
+
+# Qo'lda darhol nusxa olish
+/usr/local/bin/shajara-backup.sh
+
+# TIKLASH — hozirgi baza o'rniga tanlangan kundagi nusxani qaytaradi (EHTIYOT!)
+gunzip -c /var/backups/shajara/shajara-2026-10-27.sql.gz | mysql shajara
+```
+
+Tiklashda sanani keragiga almashtiring. Tiklash hozirgi ma'lumotni o'chirib, nusxadagisini qo'yadi —
+avval `/usr/local/bin/shajara-backup.sh` bilan joriy holatdan ham nusxa olib qo'ygan ma'qul.
+
 ## Yangilash (keyingi deploylar)
 
 ```bash
