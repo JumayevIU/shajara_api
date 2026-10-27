@@ -237,6 +237,32 @@ class ShajaraApiTest extends TestCase
         $this->postJson('/api/tree/join', ['code' => $newCode], $c)->assertCreated();
     }
 
+    public function test_leave_tree_flows(): void
+    {
+        $a = $this->dev(1, 'Ilhom');
+        $b = $this->dev(2, 'Bakhrom');
+
+        // A daraxt yaratadi, B qo'shiladi
+        $r = $this->postJson('/api/tree', ['name' => 'Ilhom', 'g' => 'm'], $a)->assertCreated();
+        $code = $r->json('invite_code');
+        $this->postJson('/api/tree/join', ['code' => $code], $b)->assertCreated();
+
+        // Ega (boshqa a'zo bor) chiqa olmaydi
+        $this->postJson('/api/tree/leave', [], $a)->assertStatus(422);
+
+        // B chiqadi — daraxt A'da qoladi, B esa endi tashqarida
+        $this->postJson('/api/tree/leave', [], $b)->assertOk()->assertJsonPath('in_tree', false);
+        $this->getJson('/api/state', $b)->assertOk()->assertJsonPath('in_tree', false);
+        $this->getJson('/api/state', $a)->assertOk()->assertJsonPath('in_tree', true);
+
+        // B o'ziga daraxt ochadi, keyin o'chirib, A'ning daraxtiga qo'shila oladi
+        $this->postJson('/api/tree', ['name' => 'Bakhrom', 'g' => 'm'], $b)->assertCreated();
+        $this->postJson('/api/tree/join', ['code' => $code], $b)->assertStatus(422); // boshqa daraxtda
+        $this->postJson('/api/tree/leave', [], $b)->assertOk(); // yolg'iz ega — daraxti o'chadi
+        $this->assertSame(1, \App\Models\Tree::count());
+        $this->postJson('/api/tree/join', ['code' => $code], $b)->assertCreated();
+    }
+
     public function test_telegram_webhook_replies_with_app_button(): void
     {
         config(['services.telegram.webhook_secret' => 'test-secret']);

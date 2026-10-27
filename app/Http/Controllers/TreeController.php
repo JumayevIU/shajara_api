@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Person;
+use App\Models\SpouseLink;
 use App\Models\Tree;
 use App\Models\TreeMember;
 use App\Services\TreeState;
@@ -161,6 +162,39 @@ class TreeController extends Controller
         $target->delete();
 
         return response()->json(TreeState::build($member));
+    }
+
+    /** POST /api/tree/leave — daraxtdan chiqish.
+     *  Oddiy a'zo: a'zoligi o'chadi (kartasi daraxtda qoladi).
+     *  Yolg'iz ega: butun daraxt o'chiriladi (boshqa daraxtga qo'shila olishi uchun).
+     *  Boshqa a'zolari bor ega: chiqa olmaydi — avval ularni chiqarishi kerak. */
+    public function leave(Request $request)
+    {
+        $user = $request->attributes->get('tgUser');
+        $member = TreeMember::where('user_id', $user->id)->first();
+        if (! $member) {
+            return response()->json(['message' => 'Siz daraxtda emassiz'], 422);
+        }
+        $tree = Tree::findOrFail($member->tree_id);
+        $others = TreeMember::where('tree_id', $tree->id)->where('id', '!=', $member->id)->count();
+
+        if ($tree->owner_id === $user->id) {
+            if ($others > 0) {
+                return response()->json(['message' => "Siz daraxt egasisiz — avval boshqa a'zolarni chiqaring"], 422);
+            }
+            DB::transaction(function () use ($tree, $member) {
+                $tree->update(['root_person_id' => null]);
+                Person::where('tree_id', $tree->id)->update(['father_id' => null, 'mother_id' => null]);
+                SpouseLink::where('tree_id', $tree->id)->delete();
+                $member->delete();
+                Person::where('tree_id', $tree->id)->delete();
+                $tree->delete();
+            });
+        } else {
+            $member->delete();
+        }
+
+        return response()->json(['in_tree' => false]);
     }
 
     /** POST /api/tree/rotate-code — yangi taklif kodi (eski havolalar o'ladi, faqat ega). */

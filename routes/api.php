@@ -14,6 +14,7 @@ Route::middleware([TelegramAuth::class])->group(function () {
     Route::post('/tree', [TreeController::class, 'store']);
     Route::post('/tree/join', [TreeController::class, 'join']);
     Route::delete('/tree/members/{id}', [TreeController::class, 'removeMember']);
+    Route::post('/tree/leave', [TreeController::class, 'leave']);
     Route::post('/tree/rotate-code', [TreeController::class, 'rotateCode']);
     Route::get('/invites/{code}', [TreeController::class, 'invitePreview']);
 

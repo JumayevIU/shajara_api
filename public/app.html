@@ -466,7 +466,7 @@ function icon(n, s){ s = s || 18;
 
 /* ============ Holat va saqlash ============ */
 const LS_KEY = 'shajara_v1';
-const APP_VER = '27.10-11'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
+const APP_VER = '27.10-12'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
 const CARD_W = 128, CARD_H = 56, SP_GAP = 18, BLOCK_GAP = 40, SIB_GAP = 28, GROUP_GAP = 64, ROW_H = 150, BUS_DROP = 26;
 const THIS_YEAR = new Date().getFullYear();
 let state = null;          // {persons:{id:{...}}, rootId, nextId}
@@ -1420,6 +1420,14 @@ function openSettings(){
     rows += '<button class="btn ghost" id="setDemo">Namuna oilani yuklash</button>'
       + '<button class="btn ghost" id="setClear" style="color:var(--danger)">Hammasini o\'chirish</button>';
   }
+  if(online.active){
+    // Oddiy a'zo chiqib keta oladi; yolg'iz ega daraxtini butunlay o'chira oladi
+    const alone = !online.members || online.members.length <= 1;
+    const leaveLabel = online.isOwner
+      ? (alone ? "Daraxtni butunlay o'chirish" : null)
+      : 'Daraxtdan chiqish';
+    if(leaveLabel) rows += '<button class="btn ghost" id="setLeave" style="color:var(--danger)">' + leaveLabel + '</button>';
+  }
   rows += '<button class="btn ghost" id="setDiag">Diagnostika</button>';
   $('settRows').innerHTML = rows;
   $('settNote').textContent = (online.active
@@ -1473,6 +1481,31 @@ function openSettings(){
       closeLayers(); showOnboard();
     });
     $('clrNo').addEventListener('click', openSettings);
+  });
+  const sl = $('setLeave');
+  if(sl) sl.addEventListener('click', () => {
+    const warn = online.isOwner
+      ? "Butun daraxt va barcha kartalar o'chiriladi. Buni qaytarib bo'lmaydi!"
+      : "Daraxtdan chiqasiz — qaytish uchun yangi taklif havolasi kerak bo'ladi.";
+    $('settRows').innerHTML =
+      '<div class="confirmBox"><p>' + warn + ' Davom etilsinmi?</p>'
+      + '<div class="row"><button class="btn small dangerFill" id="lvYes">Ha</button>'
+      + '<button class="btn small ghost" id="lvNo">Yo\'q</button></div></div>';
+    $('lvYes').addEventListener('click', async () => {
+      try{
+        const wasOwner = online.isOwner;
+        await api('/api/tree/leave', 'POST');
+        state = null;
+        online.myPersonId = null; online.members = []; online.isOwner = false;
+        online.inviteUrl = null; online.inviteCode = null;
+        world.innerHTML = '';
+        $('stats').textContent = '—';
+        closeLayers();
+        toast(wasOwner ? "Daraxt o'chirildi" : 'Daraxtdan chiqdingiz');
+        bootOnline();
+      }catch(e){ toast(e.message); }
+    });
+    $('lvNo').addEventListener('click', openSettings);
   });
   const dg = $('setDiag');
   if(dg) dg.addEventListener('click', () => {
