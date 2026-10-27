@@ -4,7 +4,7 @@ Front va back bitta loyihada: Laravel `/` da mini app sahifasini, `/api/...` da 
 
 ## Talablar
 
-- PHP 8.2+ (`php -v`), kengaytmalar: `pdo_sqlite` yoki `pdo_mysql`, `mbstring`, `openssl`
+- PHP 8.2+ (`php -v`), kengaytmalar: `pdo_mysql`, `mbstring`, `openssl`
 - Composer
 - nginx + php-fpm (uzrict loyihalaringiz ishlab turgan server mos keladi)
 - HTTPS **majburiy** — Telegram mini app faqat HTTPS URL ochadi (certbot bepul)
@@ -38,9 +38,13 @@ APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://xn--ajara-idb.uz
 
-# Boshlanishiga SQLite yetadi (alohida baza serveri kerak emas):
-DB_CONNECTION=sqlite
-# MySQL xohlasangiz: DB_CONNECTION=mysql + host/baza/parol
+# Production: MySQL (serverda shunday o'rnatilgan, 2026-10-27)
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=shajara
+DB_USERNAME=shajara
+DB_PASSWORD=<kuchli parol — serverda `openssl rand -hex 16` bilan yaratilgan>
 
 TELEGRAM_BOT_TOKEN=<BotFather bergan token>
 TELEGRAM_BOT_USERNAME=shajaralarim_bot
@@ -48,12 +52,13 @@ TELEGRAM_APP_SHORT_NAME=shajara
 ```
 
 ```bash
-# 4. Baza
-touch database/database.sqlite   # SQLite tanlagan bo'lsangiz
+# 4. Baza (MySQL)
+mysql -e "CREATE DATABASE shajara CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -e "CREATE USER 'shajara'@'localhost' IDENTIFIED BY '<parol>'; GRANT ALL PRIVILEGES ON shajara.* TO 'shajara'@'localhost';"
 php artisan migrate --force
 
 # 5. Ruxsatlar va kesh
-chown -R www-data:www-data storage bootstrap/cache database
+chown -R www-data:www-data storage bootstrap/cache
 php artisan config:cache && php artisan route:cache
 ```
 
