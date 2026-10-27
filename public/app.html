@@ -47,11 +47,13 @@
   --danger:#e0695c; --sheet-shadow:0 -12px 40px rgba(0,0,0,.5); --card-shadow:0 14px 44px rgba(0,0,0,.55);
   color-scheme:dark;
 }
-html,body{height:100%}
+html{height:100%; overflow:hidden}
+/* body qotirilgan (iOS klaviaturada sahifani surib-sakratmasligi uchun) */
 body{
   margin:0; background:var(--bg); color:var(--ink);
   font-family:var(--font-ui); font-size:15px; line-height:1.45;
-  overflow:hidden;
+  overflow:hidden; position:fixed; inset:0; width:100%; height:100%;
+  overscroll-behavior:none;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -60,7 +62,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:2px soli
 /* 16px — iOS fokusda sahifani avtozoom qilmasligi uchun (16px dan kichikda zoom qiladi) */
 input,select{font-family:inherit; font-size:16px; color:var(--ink)}
 
-#app{height:100%; display:flex; flex-direction:column; transition:height .18s ease}
+#app{height:100%; display:flex; flex-direction:column}
 
 /* ---- Sarlavha ---- */
 #topbar{
@@ -449,6 +451,7 @@ function icon(n, s){ s = s || 18;
 
 /* ============ Holat va saqlash ============ */
 const LS_KEY = 'shajara_v1';
+const APP_VER = '27.10-8'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
 const CARD_W = 128, CARD_H = 56, SP_GAP = 18, BLOCK_GAP = 40, SIB_GAP = 28, GROUP_GAP = 64, ROW_H = 150, BUS_DROP = 26;
 const THIS_YEAR = new Date().getFullYear();
 let state = null;          // {persons:{id:{...}}, rootId, nextId}
@@ -1386,9 +1389,10 @@ function openSettings(){
       + '<button class="btn ghost" id="setClear" style="color:var(--danger)">Hammasini o\'chirish</button>';
   }
   $('settRows').innerHTML = rows;
-  $('settNote').textContent = online.active
+  $('settNote').textContent = (online.active
     ? "Daraxt umumiy bazada saqlanadi — taklif havolasi orqali qo'shilgan qarindoshlaringiz ham shu daraxtni ko'radi va to'ldiradi."
-    : "Bu — MVP prototip rejimi: ma'lumotlar faqat shu qurilmada saqlanadi.";
+    : "Bu — MVP prototip rejimi: ma'lumotlar faqat shu qurilmada saqlanadi.")
+    + ' · Versiya ' + APP_VER;
   if(online.active && (online.inviteUrl || online.inviteCode)){
     const invValue = online.inviteUrl || online.inviteCode;
     const sh = $('invShare');
