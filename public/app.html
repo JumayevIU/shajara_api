@@ -828,6 +828,7 @@ function drawSVG(lay){
     const key = (p.fatherId||'') + '|' + (p.motherId||'');
     (fams[key] = fams[key] || []).push(p.id);
   }
+  const buses = [];
   for(const key of Object.keys(fams)){
     const parts = key.split('|');
     const pf = parts[0] ? pos[parts[0]] : null;
@@ -842,12 +843,30 @@ function drawSVG(lay){
     else continue;
     const kids = fams[key].filter(k => pos[k]);
     if(!kids.length) continue;
-    const busY = Math.min(...kids.map(k => pos[k].y)) - BUS_DROP;
-    edges += '<path class="eline" d="M '+ax+' '+ay+' V '+busY+'"/>';
     const xs = kids.map(k => pos[k].x + CARD_W/2);
-    const minX = Math.min(...xs, ax), maxX = Math.max(...xs, ax);
-    if(maxX - minX > 0.5) edges += '<path class="eline" d="M '+minX+' '+busY+' H '+maxX+'"/>';
-    for(const k of kids){
+    buses.push({ ax, ay, kids,
+      rowY: Math.min(...kids.map(k => pos[k].y)),
+      minX: Math.min(...xs, ax), maxX: Math.max(...xs, ax) });
+  }
+  // Bir qatordagi oilalar chiziqlari bir xil balandlikda qo'shilib ketmasin:
+  // kesishgan yoki yaqin turganlari turli pog'onaga (lane) ko'tariladi
+  const busRows = {};
+  for(const b of buses) (busRows[b.rowY] = busRows[b.rowY] || []).push(b);
+  for(const row of Object.values(busRows)){
+    row.sort((a,b2) => a.minX - b2.minX || a.maxX - b2.maxX);
+    const laneEnd = [];
+    for(const b of row){
+      let li = 0;
+      while(li < laneEnd.length && b.minX < laneEnd[li] + 36) li++;
+      laneEnd[li] = b.maxX;
+      b.lane = li;
+    }
+  }
+  for(const b of buses){
+    const busY = b.rowY - BUS_DROP - b.lane * 12;
+    edges += '<path class="eline" d="M '+b.ax+' '+b.ay+' V '+busY+'"/>';
+    if(b.maxX - b.minX > 0.5) edges += '<path class="eline" d="M '+b.minX+' '+busY+' H '+b.maxX+'"/>';
+    for(const k of b.kids){
       const kx = pos[k].x + CARD_W/2;
       edges += '<path class="eline" d="M '+kx+' '+busY+' V '+pos[k].y+'"/>';
     }

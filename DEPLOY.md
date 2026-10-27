@@ -1,6 +1,6 @@
 # Serverga joylash (VPS, nginx + PHP)
 
-Front va back bitta loyihada: Laravel `/` da mini app sahifasini, `/api/...` da APIni beradi. Domen: **shajara.uz** (Ahost'dan olingan, A-yozuvi VPS'ga qaraydi).
+Front va back bitta loyihada: Laravel `/` da mini app sahifasini, `/api/...` da APIni beradi. Domen: **şajara.uz** (Ahost'dan olingan IDN domen; texnik/punycode yozuvi — `xn--ajara-idb.uz`, nginx va certbot'da shu ishlatiladi). Server: `109.94.173.189`.
 
 ## Talablar
 
@@ -11,16 +11,9 @@ Front va back bitta loyihada: Laravel `/` da mini app sahifasini, `/api/...` da 
 
 ## DNS (Ahost)
 
-Ahost kabinetida `shajara.uz` uchun DNS yozuvlari:
+Ahost kabinetida (DNS xosting → Редактор зон) bitta o'zgarish: `@` A-yozuvining RDATA qiymatini `109.94.173.189` ga almashtirish va Save Changes. `www` CNAME `@` ga ergashadi — tegilmaydi; mail/ftp/MX/TXT qatorlari ham qoladi.
 
-| Turi | Host | Qiymat |
-|------|------|--------|
-| A    | @    | VPS IP manzili |
-| A    | www  | VPS IP manzili |
-
-VPS IP — uzrict loyihalari turgan serverning IP'si (serverda `curl -4 ifconfig.me` ko'rsatadi). MX/TXT hozircha kerak emas.
-
-Tekshirish: `dig +short shajara.uz` server IP'sini qaytarsa — tayyor (odatda 15 daqiqa – 2 soat ichida tarqaladi).
+Tekshirish: `dig +short xn--ajara-idb.uz` `109.94.173.189` ni qaytarsa — tayyor (TTL 14400, eng ko'pi 4 soat kutiladi).
 
 ## Qadamlar
 
@@ -43,7 +36,7 @@ php artisan key:generate
 ```
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://shajara.uz
+APP_URL=https://xn--ajara-idb.uz
 
 # Boshlanishiga SQLite yetadi (alohida baza serveri kerak emas):
 DB_CONNECTION=sqlite
@@ -71,7 +64,7 @@ php artisan config:cache && php artisan route:cache
 ```nginx
 server {
     listen 80;
-    server_name shajara.uz www.shajara.uz;
+    server_name xn--ajara-idb.uz www.xn--ajara-idb.uz;
     root /var/www/shajara/public;
     index index.php;
 
@@ -93,12 +86,12 @@ ln -s /etc/nginx/sites-available/shajara /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
 
 # HTTPS (DNS A-yozuvi serverga qaragach):
-certbot --nginx -d shajara.uz -d www.shajara.uz
+certbot --nginx -d xn--ajara-idb.uz -d www.xn--ajara-idb.uz
 ```
 
 ## Telegram'ga ulash
 
-1. @BotFather → `/myapps` → Shajara → **Edit Web App URL** → `https://shajara.uz/`
+1. @BotFather → `/myapps` → Shajara → **Edit Web App URL** → `https://xn--ajara-idb.uz/` (brauzer uni şajara.uz ko'rinishida ko'rsatadi)
 2. Menu Button ishlatilsa: `/mybots` → Bot Settings → Menu Button → shu URL
 3. Tekshirish: `t.me/shajaralarim_bot/shajara` oching — daraxt endi umumiy bazada saqlanadi, sozlamalarda taklif havolasi chiqadi
 
