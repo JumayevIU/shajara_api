@@ -467,7 +467,7 @@ function icon(n, s){ s = s || 18;
 
 /* ============ Holat va saqlash ============ */
 const LS_KEY = 'shajara_v1';
-const APP_VER = '27.10-13'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
+const APP_VER = '27.10-14'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
 const CARD_W = 128, CARD_H = 56, SP_GAP = 18, BLOCK_GAP = 40, SIB_GAP = 28, GROUP_GAP = 64, ROW_H = 150, BUS_DROP = 26;
 const THIS_YEAR = new Date().getFullYear();
 let state = null;          // {persons:{id:{...}}, rootId, nextId}
@@ -1068,6 +1068,9 @@ function centerOnPerson(id){
 const pointers = new Map();
 let panStart = null, pinchStart = null, didPan = false;
 svg.addEventListener('pointerdown', e => {
+  // Sintetik mouse hodisalarini (mousedown/click) manbaida o'chiramiz —
+  // ular tap'dan keyin ochilgan oynaga "soxta klik" bo'lib tushardi
+  e.preventDefault();
   // Ba'zi Android qurilmalarda pointer "osilib" qolishi mumkin (cancel kelmaydi) —
   // yangi asosiy barmoq boshlansa, eski qoldiqlarni tozalaymiz
   if(e.isPrimary && pointers.size){ pointers.clear(); pinchStart = null; panStart = null; }
@@ -1165,7 +1168,14 @@ function closeLayers(){
   $('modal').hidden = true;
   backdrop.hidden = true;
 }
-backdrop.addEventListener('click', closeLayers);
+/* Android'da barmoq tap'idan keyin brauzer o'sha nuqtaga sintetik klik
+   yuboradi — u yangi ochilgan oyna ortidagi backdrop'ga tushib, oynani
+   darhol yopib yuborardi ("lip etib yopilish"). Vaqt qalqoni bilan to'samiz. */
+let layersShownAt = 0;
+backdrop.addEventListener('click', () => {
+  if(Date.now() - layersShownAt < 450) return;
+  closeLayers();
+});
 
 /* ============ A'zo varag'i (sheet) ============ */
 function openSheet(id){
@@ -1230,6 +1240,7 @@ function openSheet(id){
 
   $('settingsSheet').hidden = true;
   $('modal').hidden = true;
+  layersShownAt = Date.now();
   backdrop.hidden = false;
   $('sheet').hidden = false;
 }
@@ -1360,6 +1371,7 @@ function openModal(ctx){
     }
   }
   $('sheet').hidden = true;
+  layersShownAt = Date.now();
   backdrop.hidden = false;
   $('modal').hidden = false;
   if(!mCard.classList.contains('suggesting')) setTimeout(() => $('f_name').focus(), 50);
@@ -1531,6 +1543,7 @@ function openSettings(){
     $('diagBack').addEventListener('click', openSettings);
   });
   $('sheet').hidden = true;
+  layersShownAt = Date.now();
   backdrop.hidden = false;
   $('settingsSheet').hidden = false;
 }
