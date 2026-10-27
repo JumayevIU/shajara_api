@@ -127,6 +127,7 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
 .memRow small{color:var(--muted); font-weight:600}
 .memSelf{color:var(--muted); font-size:12px; font-weight:700; white-space:nowrap}
 .memRow .btn.small{padding:6px 10px; font-size:12.5px; flex:none; width:auto}
+.invNote{font-size:12.5px; color:var(--muted); margin-bottom:10px; line-height:1.5; font-weight:600}
 .diagPre{font:600 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--muted);
   white-space:pre-wrap; word-break:break-all; margin:0 0 10px; user-select:all; -webkit-user-select:all}
 /* Qo'shish oynasidagi "bu odam daraxtda bor" taklifi */
@@ -467,7 +468,7 @@ function icon(n, s){ s = s || 18;
 
 /* ============ Holat va saqlash ============ */
 const LS_KEY = 'shajara_v1';
-const APP_VER = '27.10-14'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
+const APP_VER = '27.10-15'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
 const CARD_W = 128, CARD_H = 56, SP_GAP = 18, BLOCK_GAP = 40, SIB_GAP = 28, GROUP_GAP = 64, ROW_H = 150, BUS_DROP = 26;
 const THIS_YEAR = new Date().getFullYear();
 let state = null;          // {persons:{id:{...}}, rootId, nextId}
@@ -813,10 +814,15 @@ function computeLayout(){
   }
   refresh();
 
+  // Guruhlash kaliti: ota bo'yicha (ota kiritilmagan bo'lsa — ona).
+  // Shunda "faqat ota" bilan kiritilgan farzand ham aka-ukalari yoniga tushadi.
+  function groupKeyOfPerson(p){
+    return p.fatherId ? ('f' + p.fatherId) : (p.motherId ? ('m' + p.motherId) : null);
+  }
   function parentKeyOf(b){
     for(const mId of b.members){
-      const p = P(mId);
-      if(p.fatherId || p.motherId) return (p.fatherId||'') + '|' + (p.motherId||'');
+      const k = groupKeyOfPerson(P(mId));
+      if(k) return k;
     }
     return null;
   }
@@ -840,8 +846,21 @@ function computeLayout(){
         const k = parentKeyOf(b) || ('solo' + (solo++));
         (groups[k] = groups[k] || []).push(b);
       }
-      const glist = Object.values(groups).map(bs => ({
-        bs: bs.sort((a,b2) => a.desC - b2.desC),
+      // Guruh ichida aka-uka/opa-singillar YOSHI bo'yicha turadi (katta — chapda);
+      // tug'ilgan yili kiritilmaganlar joylashuv markaziga ko'ra qoladi
+      const bloodYear = (b, key) => {
+        for(const mId of b.members){
+          const p = P(mId);
+          if(p.by && groupKeyOfPerson(p) === key) return p.by;
+        }
+        return null;
+      };
+      const glist = Object.entries(groups).map(([key, bs]) => ({
+        bs: bs.sort((a,b2) => {
+          const ya = bloodYear(a, key), yb = bloodYear(b2, key);
+          if(ya != null && yb != null && ya !== yb) return ya - yb;
+          return a.desC - b2.desC;
+        }),
         c: bs.reduce((s,b2) => s + b2.desC, 0) / bs.length
       })).sort((a,b2) => a.c - b2.c);
       L.blocks = glist.flatMap(g2 => g2.bs);
@@ -1253,8 +1272,9 @@ function showPersonInvite(id){
   const shown = link || ('Taklif kodi: ' + online.inviteCode + '_' + id);
   const msg = "Assalomu alaykum! Oilamiz shajarasida sizning kartangiz bor — havolani ochib, daraxtni birga to'ldiring.";
   $('shDanger').innerHTML =
-    '<div class="confirmBox"><p><b>' + escapeHtml(p.name) + '</b> uchun shaxsiy havola — ochgan odam darhol shu kartani oladi:</p>'
-    + '<p class="obNote" style="word-break:break-all; user-select:all; margin:6px 0 10px">' + escapeHtml(shown) + '</p>'
+    '<div class="confirmBox"><p><b>' + escapeHtml(p.name) + '</b> uchun shaxsiy havola tayyor</p>'
+    + '<p class="invNote" style="margin:6px 0 10px">Ochgan odam darhol shu kartani oladi — havolani faqat o\'sha kishiga yuboring.'
+    + (link ? '' : '<br>' + escapeHtml(shown)) + '</p>'
     + '<div class="row">'
     + (link ? '<button class="btn small primary" id="pInvShare">Telegramda yuborish</button>' : '')
     + '<button class="btn small ghost" id="pInvCopy">Nusxalash</button>'
@@ -1416,7 +1436,9 @@ function openSettings(){
   if(online.active && (online.inviteUrl || online.inviteCode)){
     const invShown = online.inviteUrl || ("Taklif kodi: " + online.inviteCode);
     rows += '<div class="confirmBox"><p style="margin-bottom:6px">Qarindoshlarni taklif qilish</p>'
-      + '<div style="font-size:12.5px; word-break:break-all; color:var(--muted); margin-bottom:10px">' + escapeHtml(invShown) + '</div>'
+      + '<div class="invNote">Havolani qarindoshingizga yuboring — u qo\'shilib, daraxtni siz bilan birga to\'ldiradi.'
+      + (online.inviteUrl ? '' : '<br>Taklif kodi: <b>' + escapeHtml(online.inviteCode) + '</b>')
+      + '</div>'
       + '<div class="row">'
       + (online.inviteUrl ? '<button class="btn small primary" id="invShare">Telegramda ulashish</button>' : '')
       + '<button class="btn small ghost" id="invCopy">Nusxalash</button>'
