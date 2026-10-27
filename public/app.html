@@ -64,7 +64,7 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
 
 /* Telegram'da haqiqiy ko'rinadigan balandlik (--tg-viewport-stable-height):
    Android'da webview pastki qismi ekrandan tashqarida bo'lishi mumkin */
-#app{height:100%; height:var(--tg-viewport-stable-height, 100%); display:flex; flex-direction:column}
+#app{height:100%; height:var(--app-vh, 100%); display:flex; flex-direction:column}
 
 /* ---- Sarlavha ---- */
 #topbar{
@@ -190,17 +190,18 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
 /* ---- Pastki varaq (sheet) ---- */
 #backdrop{position:fixed; inset:0; background:rgba(10,16,12,.45); z-index:40; opacity:1; transition:opacity .18s}
 .sheet{
-  position:fixed; left:0; right:0; z-index:50;
-  /* Android Telegram: ko'rinadigan maydon pastiga yopishsin, kesilmasin */
+  position:fixed; left:50%; transform:translateX(-50%); width:100%; max-width:560px; z-index:50;
+  /* --app-vh faqat mobil Telegram'da o'rnatiladi (Android'da webview pastki
+     qismi ko'rinmas bo'lishi mumkin); desktop/brauzerda oddiy bottom:0 */
   bottom:0;
-  bottom:calc(100vh - var(--tg-viewport-stable-height, 100vh));
+  bottom:calc(100vh - var(--app-vh, 100vh));
   background:var(--surface); border-radius:22px 22px 0 0; box-shadow:var(--sheet-shadow);
   padding-top:8px;
   padding-bottom:calc(18px + env(safe-area-inset-bottom, 0px));
   padding-left:max(18px, env(safe-area-inset-left, 0px));
   padding-right:max(18px, env(safe-area-inset-right, 0px));
   max-height:78vh;
-  max-height:calc(var(--tg-viewport-stable-height, 100vh) - 56px);
+  max-height:calc(var(--app-vh, 100vh) - 56px);
   overflow-y:auto;
 }
 .grabber{width:40px; height:4px; border-radius:2px; background:var(--line); margin:4px auto 14px}
@@ -229,7 +230,7 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
 .dangerBtn{display:flex; align-items:center; gap:9px; padding:12px 13px; border-radius:14px; border:1px solid var(--line); color:var(--danger); font-weight:700; font-size:13.5px; justify-content:center}
 .confirmBox{background:var(--bg); border:1px solid var(--line); border-radius:14px; padding:13px; font-size:13.5px}
 .confirmBox p{margin:0 0 10px; font-weight:600}
-.confirmBox .row{display:flex; gap:9px}
+.confirmBox .row{display:flex; gap:9px; flex-wrap:wrap}
 .settRow{display:flex; flex-direction:column; gap:10px; margin-top:14px}
 .noteTxt{color:var(--muted); font-size:12.5px; margin-top:14px; line-height:1.5}
 
@@ -246,7 +247,7 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
   background:var(--surface); border-radius:22px; width:100%; max-width:430px;
   padding:20px 18px calc(18px + env(safe-area-inset-bottom, 0px));
   max-height:calc(90vh - 20px);
-  max-height:calc(min(100dvh, var(--tg-viewport-stable-height, 100dvh)) - var(--kb, 0px) - 70px);
+  max-height:calc(min(100dvh, var(--app-vh, 100dvh)) - var(--kb, 0px) - 70px);
   overflow-y:auto; box-shadow:var(--card-shadow);
 }
 @media (min-width:560px){ .modalWrap{align-items:center} .modalCard{padding-bottom:20px} }
@@ -466,7 +467,7 @@ function icon(n, s){ s = s || 18;
 
 /* ============ Holat va saqlash ============ */
 const LS_KEY = 'shajara_v1';
-const APP_VER = '27.10-12'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
+const APP_VER = '27.10-13'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
 const CARD_W = 128, CARD_H = 56, SP_GAP = 18, BLOCK_GAP = 40, SIB_GAP = 28, GROUP_GAP = 64, ROW_H = 150, BUS_DROP = 26;
 const THIS_YEAR = new Date().getFullYear();
 let state = null;          // {persons:{id:{...}}, rootId, nextId}
@@ -1067,6 +1068,9 @@ function centerOnPerson(id){
 const pointers = new Map();
 let panStart = null, pinchStart = null, didPan = false;
 svg.addEventListener('pointerdown', e => {
+  // Ba'zi Android qurilmalarda pointer "osilib" qolishi mumkin (cancel kelmaydi) —
+  // yangi asosiy barmoq boshlansa, eski qoldiqlarni tozalaymiz
+  if(e.isPrimary && pointers.size){ pointers.clear(); pinchStart = null; panStart = null; }
   svg.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
   if(pointers.size === 1){
@@ -1099,7 +1103,8 @@ svg.addEventListener('pointermove', e => {
     applyView();
   } else if(panStart && pointers.size === 1){
     const dx = e.clientX - panStart.x, dy = e.clientY - panStart.y;
-    if(Math.abs(dx)+Math.abs(dy) > 6) didPan = true;
+    // Barmoq bilan bosishda tabiiy titrash bo'ladi — tap chegarasi sichqonchadan kengroq
+    if(Math.hypot(dx, dy) > (e.pointerType === 'touch' ? 12 : 5)) didPan = true;
     view.x = panStart.vx + dx; view.y = panStart.vy + dy;
     applyView();
   }
@@ -1125,6 +1130,9 @@ svg.addEventListener('pointerup', e => {
   }
 });
 svg.addEventListener('pointercancel', endPointer);
+svg.addEventListener('lostpointercapture', endPointer);
+// Android'da uzoq bosib turish kontekst-menyu ochib, bosishni buzmasin
+svg.addEventListener('contextmenu', e => e.preventDefault());
 svg.addEventListener('wheel', e => {
   e.preventDefault();
   zoomAt(e.clientX, e.clientY, view.k * Math.exp(-e.deltaY*0.0016));
@@ -1691,17 +1699,20 @@ if(tg){
   try{
     tg.ready();
     tg.expand();
-    // Haqiqiy ko'rinadigan balandlikni CSS'ga yozamiz (eski klientlarda
-    // Telegram o'zi inject qilmasligi mumkin)
-    const setTgVh = () => {
-      if(tg.viewportStableHeight){
-        // Ba'zi qurilmalarda noto'g'ri (katta) qiymat kelishi mumkin — chegaralaymiz
+    // Haqiqiy ko'rinadigan balandlik — FAQAT mobil Telegram'da (Android'da
+    // webview pastki qismi ekrandan tashqarida bo'lishi mumkin). Desktop
+    // Telegram bu qiymatni boshqacha berib, oynalarni ko'tarib yuborardi.
+    const setAppVh = () => {
+      const mobile = tg.platform === 'android' || tg.platform === 'ios';
+      if(mobile && tg.viewportStableHeight){
         const h = Math.min(Math.round(tg.viewportStableHeight), window.innerHeight);
-        if(h > 200) document.documentElement.style.setProperty('--tg-viewport-stable-height', h + 'px');
+        if(h > 200){ document.documentElement.style.setProperty('--app-vh', h + 'px'); return; }
       }
+      document.documentElement.style.removeProperty('--app-vh');
     };
-    setTgVh();
-    if(tg.onEvent) tg.onEvent('viewportChanged', setTgVh);
+    setAppVh();
+    if(tg.onEvent) tg.onEvent('viewportChanged', setAppVh);
+    window.addEventListener('resize', setAppVh);
     // daraxtni barmoq bilan surganda ilova pastga tortilib yopilib ketmasin
     if(tg.disableVerticalSwipes) tg.disableVerticalSwipes();
     applyTgTheme();
