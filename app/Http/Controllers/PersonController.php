@@ -131,6 +131,50 @@ class PersonController extends Controller
         return response()->json(TreeState::build($member));
     }
 
+    /** POST /api/persons/{id}/link — daraxtdagi MAVJUD odamni ota/ona/turmush
+     *  o'rtoq sifatida bog'lash (yangi karta yaratmasdan, duplikatga qarshi). */
+    public function link(Request $request, string $id)
+    {
+        [, $member] = $this->requireMember($request);
+        $person = $member ? $this->findPerson($member->tree_id, $id) : null;
+        if (! $person) {
+            return response()->json(['message' => 'Karta topilmadi'], 404);
+        }
+
+        $data = $request->validate([
+            'role' => 'required|in:father,mother,spouse',
+            'other_id' => 'required|string',
+        ]);
+
+        $other = $this->findPerson($member->tree_id, $data['other_id']);
+        if (! $other || $other->id === $person->id) {
+            return response()->json(['message' => 'Bog\'lanadigan karta topilmadi'], 404);
+        }
+
+        $role = $data['role'];
+        if ($role === 'father' || $role === 'mother') {
+            if ($role === 'father' && ($person->father_id || $other->gender !== 'm')) {
+                return response()->json(['message' => 'Ota sifatida bog\'lab bo\'lmaydi'], 422);
+            }
+            if ($role === 'mother' && ($person->mother_id || $other->gender !== 'f')) {
+                return response()->json(['message' => 'Ona sifatida bog\'lab bo\'lmaydi'], 422);
+            }
+            // Avlod halqasi bo'lmasin: other — personning avlodi bo'lsa, taqiqlanadi
+            if ($this->isDescendant($member->tree_id, $person->id, $other->id)) {
+                return response()->json(['message' => 'Bunday bog\'lash daraxtda halqa hosil qiladi'], 422);
+            }
+            $person->update([$role === 'father' ? 'father_id' : 'mother_id' => $other->id]);
+            $pairWith = $role === 'father' ? $person->mother_id : $person->father_id;
+            if ($pairWith) {
+                SpouseLink::connect($member->tree_id, $other->id, $pairWith);
+            }
+        } else {
+            SpouseLink::connect($member->tree_id, $person->id, $other->id);
+        }
+
+        return response()->json(TreeState::build($member));
+    }
+
     /** DELETE /api/persons/{id} — himoyalar bilan o'chirish. */
     public function destroy(Request $request, string $id)
     {
@@ -189,6 +233,32 @@ class PersonController extends Controller
         $pid = (int) ltrim($id, 'p');
 
         return $pid ? Person::where('tree_id', $treeId)->where('id', $pid)->first() : null;
+    }
+
+    /** other — person'ning avlodimi? (ota/ona qilib bog'lashda halqadan saqlaydi) */
+    private function isDescendant(int $treeId, int $personId, int $otherId): bool
+    {
+        $children = [];
+        foreach (Person::where('tree_id', $treeId)->get(['id', 'father_id', 'mother_id']) as $p) {
+            if ($p->father_id) $children[$p->father_id][] = $p->id;
+            if ($p->mother_id) $children[$p->mother_id][] = $p->id;
+        }
+        $queue = [$personId];
+        $seen = [$personId => true];
+        while ($queue) {
+            $cur = array_shift($queue);
+            foreach ($children[$cur] ?? [] as $c) {
+                if ($c === $otherId) {
+                    return true;
+                }
+                if (! isset($seen[$c])) {
+                    $seen[$c] = true;
+                    $queue[] = $c;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

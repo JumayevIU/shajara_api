@@ -159,6 +159,42 @@ class ShajaraApiTest extends TestCase
         $this->postJson('/api/tree/join', ['code' => 'YOQKOD22'], $this->dev(3, 'Test'))->assertStatus(404);
     }
 
+    public function test_link_existing_person_as_parent_or_spouse(): void
+    {
+        $h = $this->dev(1, 'Ilhom');
+
+        $r = $this->postJson('/api/tree', ['name' => 'Ilhom', 'g' => 'm'], $h)->assertCreated();
+        $myId = $r->json('state.my_person_id');
+        $r = $this->postJson('/api/persons', [
+            'role' => 'father', 'base_id' => $myId, 'name' => 'Baxtiyor', 'g' => 'm', 'alive' => true,
+        ], $h)->assertCreated();
+        $dadId = collect($r->json('state.persons'))->firstWhere('name', 'Baxtiyor')['id'];
+        // Otaga xotin (alohida odam sifatida) qo'shildi
+        $r = $this->postJson('/api/persons', [
+            'role' => 'spouse', 'base_id' => $dadId, 'name' => 'Oynisa', 'g' => 'f', 'alive' => true,
+        ], $h)->assertCreated();
+        $momId = collect($r->json('state.persons'))->firstWhere('name', 'Oynisa')['id'];
+
+        // Endi o'sha xotinni yangi karta yaratmasdan ONA sifatida bog'laymiz
+        $r = $this->postJson('/api/persons/'.$myId.'/link', ['role' => 'mother', 'other_id' => $momId], $h)
+            ->assertOk();
+        $this->assertSame($momId, $r->json('state.persons.'.$myId.'.motherId'));
+        $this->assertCount(3, $r->json('state.persons')); // yangi odam yaratilmadi
+
+        // Ikkinchi marta ona bog'lab bo'lmaydi
+        $this->postJson('/api/persons/'.$myId.'/link', ['role' => 'mother', 'other_id' => $momId], $h)
+            ->assertStatus(422);
+
+        // Halqa taqiqlanadi: farzandni otasiga "ota" qilib bo'lmaydi
+        $this->postJson('/api/persons/'.$dadId.'/link', ['role' => 'father', 'other_id' => $myId], $h)
+            ->assertStatus(422);
+
+        // Spouse bog'lash: farzand orqali topilgan ota-onani juft qilish
+        $r = $this->postJson('/api/persons/'.$dadId.'/link', ['role' => 'spouse', 'other_id' => $momId], $h)
+            ->assertOk();
+        $this->assertContains($momId, $r->json('state.persons.'.$dadId.'.spouseIds'));
+    }
+
     public function test_personal_invite_preview_and_join(): void
     {
         $a = $this->dev(1, 'Ilhom');

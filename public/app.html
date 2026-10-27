@@ -117,6 +117,11 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
 .sresult b{display:block; font-size:14px; color:var(--ink)}
 .sresult span span{display:block; font-size:11.5px; color:var(--muted); font-weight:600}
 .sempty{padding:12px; text-align:center; color:var(--muted); font-size:13px; font-weight:600}
+/* Qo'shish oynasidagi "bu odam daraxtda bor" taklifi */
+#mSuggest p{margin:4px 0 12px; color:var(--muted); font-size:14px}
+#mSuggest .sresult{border:1px solid var(--line); margin-bottom:8px}
+.modalCard.suggesting .field, .modalCard.suggesting .twoCol,
+.modalCard.suggesting #mSave, .modalCard.suggesting #mErr{display:none}
 .card.flash .cardbg{animation:flashCard 1.8s ease}
 @keyframes flashCard{0%,55%{stroke:var(--gold); stroke-width:3}}
 
@@ -380,6 +385,7 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
   <div class="modalCard">
     <div class="mHead"><h2 id="mTitle"></h2><button class="iconbtn" id="mClose" aria-label="Yopish"></button></div>
     <p class="mCtx" id="mCtx"></p>
+    <div id="mSuggest" hidden></div>
     <div class="field">
       <label for="f_name">Ismi</label>
       <input type="text" id="f_name" maxlength="30" autocomplete="off" placeholder="Ism kiriting" enterkeyhint="done">
@@ -1232,10 +1238,44 @@ const ROLE_META = {
   child:{title:"Farzand qo'shish", rel:'farzandi', lock:false},
   sibling:{title:"Aka-uka / opa-singil qo'shish", rel:'aka-uka yoki opa-singili', lock:false}
 };
+/* "Bu odam daraxtda allaqachon bor" nomzodlari: duplikat yaratmaslik uchun */
+function linkCandidates(role, baseId){
+  const base = P(baseId);
+  if(role === 'mother' && base.fatherId)
+    return P(base.fatherId).spouseIds.filter(s => P(s) && P(s).g === 'f');
+  if(role === 'father' && base.motherId)
+    return P(base.motherId).spouseIds.filter(s => P(s) && P(s).g === 'm');
+  if(role === 'spouse'){
+    const out = [];
+    for(const c of childrenOf(baseId)){
+      const other = base.g === 'm' ? P(c).motherId : P(c).fatherId;
+      if(other && other !== baseId && !base.spouseIds.includes(other) && !out.includes(other)) out.push(other);
+    }
+    return out;
+  }
+  return [];
+}
+function applyLink(role, baseId, otherId){
+  if(online.active){
+    apiMutate('/api/persons/' + baseId + '/link', 'POST', {role, other_id: otherId},
+      "Bog'landi: " + P(otherId).name);
+    return;
+  }
+  const base = P(baseId);
+  if(role === 'mother'){ base.motherId = otherId; if(base.fatherId) linkSpouse(otherId, base.fatherId); }
+  else if(role === 'father'){ base.fatherId = otherId; if(base.motherId) linkSpouse(otherId, base.motherId); }
+  else linkSpouse(baseId, otherId);
+  save(); closeLayers(); rerender(); toast("Bog'landi: " + P(otherId).name);
+}
+
 function openModal(ctx){
   modalCtx = ctx;
   $('mErr').textContent = '';
   $('f_otherWrap').hidden = true;
+  const mCard = document.querySelector('#modal .modalCard');
+  mCard.classList.remove('suggesting');
+  $('mSuggest').hidden = true;
+  $('mSuggest').innerHTML = '';
   if(ctx.mode === 'edit'){
     const p = P(ctx.personId);
     $('mTitle').textContent = 'Tahrirlash';
@@ -1264,11 +1304,35 @@ function openModal(ctx){
       $('f_other').innerHTML = opts + '<option value="">Ko\'rsatilmagan</option>';
       $('f_otherWrap').hidden = false;
     }
+    // Daraxtda mos odam allaqachon bo'lsa — avval uni taklif qilamiz
+    const cands = ctx.skipSuggest ? [] : linkCandidates(ctx.role, ctx.baseId);
+    if(cands.length){
+      mCard.classList.add('suggesting');
+      const hint = ctx.role === 'spouse'
+        ? 'Farzandlarining ' + (base.g === 'm' ? 'onasi' : 'otasi') + ' sifatida daraxtda allaqachon bor — '
+          + base.name + "ning turmush o'rtog'i shumi?"
+        : (ctx.role === 'mother' ? 'Otasining' : 'Onasining') + " turmush o'rtog'i daraxtda allaqachon bor — "
+          + base.name + 'ning ' + (ctx.role === 'mother' ? 'onasi' : 'otasi') + ' shumi?';
+      $('mSuggest').innerHTML = '<p>' + escapeHtml(hint) + '</p>'
+        + cands.map(cid => {
+            const c = P(cid);
+            return '<button class="sresult '+c.g+'" data-id="'+cid+'">'
+              + '<span class="sr-ava">'+escapeHtml((c.name||'?').charAt(0).toUpperCase())+'</span>'
+              + '<span style="min-width:0"><b>'+escapeHtml(c.name)+'</b>'
+              + (yearsStr(c) ? '<span>'+escapeHtml(yearsStr(c))+'</span>' : '')
+              + '</span></button>';
+          }).join('')
+        + '<button class="btn ghost" id="mSuggestNew" style="margin-top:4px; width:100%">Yo\'q, yangi odam kiritaman</button>';
+      $('mSuggest').hidden = false;
+      $('mSuggest').querySelectorAll('.sresult').forEach(b =>
+        b.addEventListener('click', () => applyLink(ctx.role, ctx.baseId, b.dataset.id)));
+      $('mSuggestNew').addEventListener('click', () => openModal(Object.assign({}, ctx, {skipSuggest:true})));
+    }
   }
   $('sheet').hidden = true;
   backdrop.hidden = false;
   $('modal').hidden = false;
-  setTimeout(() => $('f_name').focus(), 50);
+  if(!mCard.classList.contains('suggesting')) setTimeout(() => $('f_name').focus(), 50);
 }
 $('f_alive').addEventListener('change', () => { $('f_dyWrap').hidden = $('f_alive').checked; });
 $('mClose').addEventListener('click', closeLayers);

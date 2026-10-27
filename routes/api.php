@@ -12,6 +12,7 @@ Route::middleware([TelegramAuth::class])->group(function () {
     Route::get('/invites/{code}', [TreeController::class, 'invitePreview']);
 
     Route::post('/persons', [PersonController::class, 'store']);
+    Route::post('/persons/{id}/link', [PersonController::class, 'link']);
     Route::patch('/persons/{id}', [PersonController::class, 'update']);
     Route::delete('/persons/{id}', [PersonController::class, 'destroy']);
     Route::post('/persons/{id}/claim', [PersonController::class, 'claim']);
