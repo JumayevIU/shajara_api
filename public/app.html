@@ -119,6 +119,12 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
 .sresult b{display:block; font-size:14px; color:var(--ink)}
 .sresult span span{display:block; font-size:11.5px; color:var(--muted); font-weight:600}
 .sempty{padding:12px; text-align:center; color:var(--muted); font-size:13px; font-weight:600}
+/* Sozlamalardagi a'zolar ro'yxati */
+.memRow{display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:8px 0; border-top:1px solid var(--line); font-size:13.5px}
+.memRow small{color:var(--muted); font-weight:600}
+.memSelf{color:var(--muted); font-size:12px; font-weight:700; white-space:nowrap}
+.memRow .btn.small{padding:6px 10px; font-size:12.5px; flex:none; width:auto}
 /* Qo'shish oynasidagi "bu odam daraxtda bor" taklifi */
 #mSuggest p{margin:4px 0 12px; color:var(--muted); font-size:14px}
 #mSuggest .sresult{border:1px solid var(--line); margin-bottom:8px}
@@ -451,7 +457,7 @@ function icon(n, s){ s = s || 18;
 
 /* ============ Holat va saqlash ============ */
 const LS_KEY = 'shajara_v1';
-const APP_VER = '27.10-8'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
+const APP_VER = '27.10-9'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
 const CARD_W = 128, CARD_H = 56, SP_GAP = 18, BLOCK_GAP = 40, SIB_GAP = 28, GROUP_GAP = 64, ROW_H = 150, BUS_DROP = 26;
 const THIS_YEAR = new Date().getFullYear();
 let state = null;          // {persons:{id:{...}}, rootId, nextId}
@@ -490,7 +496,7 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;',
 const API_DEFAULT = '';
 const API_BASE = new URLSearchParams(location.search).get('api') || API_DEFAULT;
 const DEV_USER = new URLSearchParams(location.search).get('dev'); // "12345:Ism" — faqat lokal sinov
-const online = {candidate:false, active:false, myPersonId:null, inviteUrl:null, inviteCode:null};
+const online = {candidate:false, active:false, myPersonId:null, inviteUrl:null, inviteCode:null, isOwner:false, members:[]};
 let pendingMutation = false;
 
 function authHeaders(){
@@ -521,6 +527,8 @@ function applyServerState(resp, opts){
   online.myPersonId = st.my_person_id || null;
   online.inviteUrl = resp.invite_url || null;
   online.inviteCode = resp.invite_code || null;
+  online.isOwner = !!resp.is_owner;
+  online.members = resp.members || [];
   hideOnboard();
   rerender(opts);
   return true;
@@ -1382,7 +1390,22 @@ function openSettings(){
       + '<div style="font-size:12.5px; word-break:break-all; color:var(--muted); margin-bottom:10px">' + escapeHtml(invShown) + '</div>'
       + '<div class="row">'
       + (online.inviteUrl ? '<button class="btn small primary" id="invShare">Telegramda ulashish</button>' : '')
-      + '<button class="btn small ghost" id="invCopy">Nusxalash</button></div></div>';
+      + '<button class="btn small ghost" id="invCopy">Nusxalash</button>'
+      + (online.isOwner ? '<button class="btn small ghost" id="invRotate">Yangi havola</button>' : '')
+      + '</div></div>';
+  }
+  if(online.active && online.isOwner && online.members.length > 1){
+    rows += '<div class="confirmBox"><p style="margin-bottom:4px">A\'zolar — daraxtni kim ko\'radi</p>'
+      + online.members.map(m => {
+          const pn = m.person_id && state.persons[m.person_id]
+            ? state.persons[m.person_id].name : 'karta tanlanmagan';
+          return '<div class="memRow"><span class="memName">' + escapeHtml(m.name)
+            + ' <small>· ' + escapeHtml(pn) + '</small></span>'
+            + (m.self ? '<span class="memSelf">siz (ega)</span>'
+                      : '<button class="btn small ghost memKick" data-id="' + m.id + '">Chiqarish</button>')
+            + '</div>';
+        }).join('')
+      + '</div>';
   }
   if(!online.active){
     rows += '<button class="btn ghost" id="setDemo">Namuna oilani yuklash</button>'
@@ -1406,7 +1429,19 @@ function openSettings(){
         navigator.clipboard.writeText(invValue).then(() => toast('Nusxalandi'), () => toast(invValue));
       }catch(e){ toast(invValue); }
     });
+    const rot = $('invRotate');
+    if(rot) rot.addEventListener('click', () => {
+      if(!rot.dataset.c){ rot.dataset.c = '1'; rot.textContent = "Eski havola o'chadi. Rostdanmi?"; return; }
+      apiMutate('/api/tree/rotate-code', 'POST', null, 'Yangi havola tayyor — eskisi endi ishlamaydi');
+    });
   }
+  document.querySelectorAll('.memKick').forEach(b => {
+    b.addEventListener('click', () => {
+      if(!b.dataset.c){ b.dataset.c = '1'; b.textContent = 'Rostdanmi?'; return; }
+      apiMutate('/api/tree/members/' + b.getAttribute('data-id'), 'DELETE', null,
+        "Chiqarildi — endi u daraxtni ko'rmaydi");
+    });
+  });
   const sd = $('setDemo');
   if(sd) sd.addEventListener('click', () => {
     $('settRows').innerHTML =

@@ -136,4 +136,48 @@ class TreeController extends Controller
 
         return response()->json($resp, 201);
     }
+
+    /** DELETE /api/tree/members/{id} — a'zoni daraxtdan chiqarish (faqat ega).
+     *  Kartasi daraxtda qoladi, lekin bo'shaydi; chiqarilgan odam daraxtni boshqa ko'rmaydi. */
+    public function removeMember(Request $request, string $id)
+    {
+        $user = $request->attributes->get('tgUser');
+        $member = TreeMember::where('user_id', $user->id)->first();
+        if (! $member) {
+            return response()->json(['message' => 'Siz daraxtda emassiz'], 422);
+        }
+        $tree = Tree::findOrFail($member->tree_id);
+        if ($tree->owner_id !== $user->id) {
+            return response()->json(['message' => 'Faqat daraxt egasi a\'zolarni chiqara oladi'], 403);
+        }
+        $target = TreeMember::where('tree_id', $tree->id)->where('id', (int) $id)->first();
+        if (! $target) {
+            return response()->json(['message' => 'A\'zo topilmadi'], 404);
+        }
+        if ($target->id === $member->id) {
+            return response()->json(['message' => 'O\'zingizni chiqara olmaysiz'], 422);
+        }
+
+        $target->delete();
+
+        return response()->json(TreeState::build($member));
+    }
+
+    /** POST /api/tree/rotate-code — yangi taklif kodi (eski havolalar o'ladi, faqat ega). */
+    public function rotateCode(Request $request)
+    {
+        $user = $request->attributes->get('tgUser');
+        $member = TreeMember::where('user_id', $user->id)->first();
+        if (! $member) {
+            return response()->json(['message' => 'Siz daraxtda emassiz'], 422);
+        }
+        $tree = Tree::findOrFail($member->tree_id);
+        if ($tree->owner_id !== $user->id) {
+            return response()->json(['message' => 'Faqat daraxt egasi havolani yangilay oladi'], 403);
+        }
+
+        $tree->update(['invite_code' => Tree::freshInviteCode()]);
+
+        return response()->json(TreeState::build($member));
+    }
 }

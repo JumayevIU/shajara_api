@@ -13,6 +13,8 @@ Route::middleware([TelegramAuth::class])->group(function () {
     Route::get('/state', [TreeController::class, 'state']);
     Route::post('/tree', [TreeController::class, 'store']);
     Route::post('/tree/join', [TreeController::class, 'join']);
+    Route::delete('/tree/members/{id}', [TreeController::class, 'removeMember']);
+    Route::post('/tree/rotate-code', [TreeController::class, 'rotateCode']);
     Route::get('/invites/{code}', [TreeController::class, 'invitePreview']);
 
     Route::post('/persons', [PersonController::class, 'store']);

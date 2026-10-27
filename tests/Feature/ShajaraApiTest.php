@@ -195,6 +195,48 @@ class ShajaraApiTest extends TestCase
         $this->assertContains($momId, $r->json('state.persons.'.$dadId.'.spouseIds'));
     }
 
+    public function test_owner_can_remove_member_and_rotate_invite_code(): void
+    {
+        $a = $this->dev(1, 'Ilhom');
+        $b = $this->dev(2, 'Begona');
+        $c = $this->dev(3, 'Olim');
+
+        $r = $this->postJson('/api/tree', ['name' => 'Ilhom', 'g' => 'm'], $a)->assertCreated();
+        $code = $r->json('invite_code');
+        $this->assertTrue($r->json('is_owner'));
+
+        // B qo'shiladi va o'ziga karta yaratib egallaydi
+        $r = $this->postJson('/api/tree/join', ['code' => $code], $b)->assertCreated();
+        $this->assertFalse($r->json('is_owner'));
+        $this->assertNull($r->json('members')); // a'zolar ro'yxati faqat egaga
+
+        // Ega a'zolarni ko'radi
+        $r = $this->getJson('/api/state', $a)->assertOk();
+        $members = collect($r->json('members'));
+        $this->assertCount(2, $members);
+        $bMember = $members->firstWhere('self', false);
+
+        // B egani chiqara olmaydi (403)
+        $aMember = $members->firstWhere('self', true);
+        $this->postJson('/api/tree/rotate-code', [], $b)->assertStatus(403);
+        $this->deleteJson('/api/tree/members/'.$aMember['id'], [], $b)->assertStatus(403);
+
+        // Ega o'zini chiqara olmaydi
+        $this->deleteJson('/api/tree/members/'.$aMember['id'], [], $a)->assertStatus(422);
+
+        // Ega B'ni chiqaradi — B endi daraxtni ko'rmaydi
+        $this->deleteJson('/api/tree/members/'.$bMember['id'], [], $a)->assertOk();
+        $r = $this->getJson('/api/state', $b)->assertOk();
+        $this->assertFalse($r->json('in_tree'));
+
+        // Havolani yangilash — eski kod bilan endi kirib bo'lmaydi
+        $r = $this->postJson('/api/tree/rotate-code', [], $a)->assertOk();
+        $newCode = $r->json('invite_code');
+        $this->assertNotSame($code, $newCode);
+        $this->postJson('/api/tree/join', ['code' => $code], $c)->assertStatus(404);
+        $this->postJson('/api/tree/join', ['code' => $newCode], $c)->assertCreated();
+    }
+
     public function test_telegram_webhook_replies_with_app_button(): void
     {
         config(['services.telegram.webhook_secret' => 'test-secret']);

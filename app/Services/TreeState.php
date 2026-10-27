@@ -65,7 +65,8 @@ class TreeState
                 .'?startapp='.$tree->invite_code;
         }
 
-        return [
+        $isOwner = $tree->owner_id === $member->user_id;
+        $out = [
             'in_tree' => true,
             'state' => [
                 'persons' => $map ?: new \stdClass,
@@ -74,6 +75,21 @@ class TreeState
             ],
             'invite_url' => $inviteUrl,
             'invite_code' => $tree->invite_code,
+            'is_owner' => $isOwner,
         ];
+
+        // Egaga a'zolar ro'yxati — chiqarib yuborish uchun
+        if ($isOwner) {
+            $all = TreeMember::where('tree_id', $tree->id)->get();
+            $users = User::whereIn('id', $all->pluck('user_id'))->get()->keyBy('id');
+            $out['members'] = $all->map(fn ($m) => [
+                'id' => $m->id,
+                'name' => $users[$m->user_id]->first_name ?? '—',
+                'person_id' => $m->person_id ? 'p'.$m->person_id : null,
+                'self' => $m->user_id === $member->user_id,
+            ])->values();
+        }
+
+        return $out;
     }
 }
