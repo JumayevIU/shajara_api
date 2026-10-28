@@ -9,6 +9,12 @@ use Illuminate\Support\Facades\Route;
 // Bot webhook — Telegram'ning o'zi chaqiradi (secret token bilan himoyalangan)
 Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle']);
 
+// Mobil ilova autentifikatsiyasi (ochiq, throttle bilan)
+Route::post('/auth/request', [\App\Http\Controllers\AuthController::class, 'request'])
+    ->middleware('throttle:20,1');
+Route::get('/auth/token', [\App\Http\Controllers\AuthController::class, 'token'])
+    ->middleware('throttle:60,1');
+
 Route::middleware([TelegramAuth::class])->group(function () {
     Route::get('/state', [TreeController::class, 'state']);
     Route::post('/tree', [TreeController::class, 'store']);
@@ -23,5 +29,7 @@ Route::middleware([TelegramAuth::class])->group(function () {
     Route::patch('/persons/{id}', [PersonController::class, 'update']);
     Route::delete('/persons/{id}', [PersonController::class, 'destroy']);
     Route::post('/persons/{id}/claim', [PersonController::class, 'claim']);
+    Route::post('/persons/{id}/photos', [PersonController::class, 'addPhoto']);
+    Route::delete('/photos/{id}', [PersonController::class, 'deletePhoto']);
     Route::post('/export', [\App\Http\Controllers\ExportController::class, 'store']);
 });

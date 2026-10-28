@@ -32,6 +32,8 @@ class TreeState
         $links = SpouseLink::where('tree_id', $tree->id)->get();
         $claimed = TreeMember::where('tree_id', $tree->id)
             ->whereNotNull('person_id')->pluck('person_id')->all();
+        $photos = \App\Models\PersonPhoto::where('tree_id', $tree->id)
+            ->orderBy('id')->get()->groupBy('person_id');
 
         $spouses = [];
         foreach ($links as $l) {
@@ -49,6 +51,9 @@ class TreeState
                 'dy' => $p->death_year,
                 'alive' => $p->alive,
                 'bio' => $p->bio,
+                'photos' => ($photos[$p->id] ?? collect())
+                    ->map(fn ($ph) => ['id' => $ph->id, 'url' => url('/storage/'.$ph->path)])
+                    ->values(),
                 'fatherId' => $p->father_id ? 'p'.$p->father_id : null,
                 'motherId' => $p->mother_id ? 'p'.$p->mother_id : null,
                 'spouseIds' => $spouses[$p->id] ?? [],

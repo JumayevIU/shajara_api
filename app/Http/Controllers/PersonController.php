@@ -220,6 +220,52 @@ class PersonController extends Controller
         return response()->json(TreeState::build($member));
     }
 
+    /** POST /api/persons/{id}/photos — odamga rasm qo'shish (ko'pi bilan 10 ta). */
+    public function addPhoto(Request $request, string $id)
+    {
+        [$user, $member] = $this->requireMember($request);
+        $person = $member ? $this->findPerson($member->tree_id, $id) : null;
+        if (! $person) {
+            return response()->json(['message' => 'Karta topilmadi'], 404);
+        }
+
+        $request->validate([
+            'photo' => 'required|image|mimes:jpeg,png,webp|max:8192', // 8MB
+        ]);
+
+        $count = \App\Models\PersonPhoto::where('person_id', $person->id)->count();
+        if ($count >= 10) {
+            return response()->json(['message' => "Bir odamga ko'pi bilan 10 ta rasm"], 422);
+        }
+
+        $path = $request->file('photo')->store('persons/'.$person->id, 'public');
+        \App\Models\PersonPhoto::create([
+            'tree_id' => $member->tree_id,
+            'person_id' => $person->id,
+            'path' => $path,
+            'created_by' => $user->id,
+        ]);
+
+        return response()->json(TreeState::build($member->refresh()), 201);
+    }
+
+    /** DELETE /api/photos/{id} — rasmni o'chirish (o'z daraxtidagina). */
+    public function deletePhoto(Request $request, string $id)
+    {
+        [, $member] = $this->requireMember($request);
+        $photo = $member
+            ? \App\Models\PersonPhoto::where('tree_id', $member->tree_id)->find((int) $id)
+            : null;
+        if (! $photo) {
+            return response()->json(['message' => 'Rasm topilmadi'], 404);
+        }
+
+        \Illuminate\Support\Facades\Storage::disk('public')->delete($photo->path);
+        $photo->delete();
+
+        return response()->json(TreeState::build($member));
+    }
+
     /* ---------- yordamchilar ---------- */
 
     private function requireMember(Request $request): array

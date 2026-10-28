@@ -263,6 +263,79 @@ class ShajaraApiTest extends TestCase
         $this->postJson('/api/tree/join', ['code' => $code], $b)->assertCreated();
     }
 
+    public function test_mobile_auth_flow(): void
+    {
+        config(['services.telegram.webhook_secret' => 'test-secret']);
+        \Illuminate\Support\Facades\Http::fake();
+
+        // 1. Mobil ilova kod so'raydi
+        $r = $this->postJson('/api/auth/request', ['device' => 'iPhone 15'])->assertCreated();
+        $code = $r->json('code');
+        $this->assertStringContainsString('start=auth_'.$code, $r->json('deep_link'));
+
+        // Hali bog'lanmagan — pending
+        $this->getJson('/api/auth/token?code='.$code)->assertOk()->assertJsonPath('status', 'pending');
+
+        // 2. Foydalanuvchi botda Start bosadi (webhook)
+        $this->postJson('/api/telegram/webhook', [
+            'message' => [
+                'chat' => ['id' => 777, 'type' => 'private'],
+                'from' => ['id' => 777, 'first_name' => 'Mobil'],
+                'text' => '/start auth_'.$code,
+            ],
+        ], ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'])->assertOk();
+
+        // 3. Token olinadi (faqat bir marta)
+        $r = $this->getJson('/api/auth/token?code='.$code)->assertOk();
+        $this->assertSame('ok', $r->json('status'));
+        $token = $r->json('token');
+        $this->getJson('/api/auth/token?code='.$code)->assertStatus(410);
+
+        // 4. Bearer bilan API ishlaydi
+        $this->getJson('/api/state', ['Authorization' => 'Bearer '.$token])
+            ->assertOk()->assertJsonPath('in_tree', false);
+        $this->postJson('/api/tree', ['name' => 'Mobil', 'g' => 'm'],
+            ['Authorization' => 'Bearer '.$token])->assertCreated();
+
+        // Noto'g'ri token — 401
+        $this->getJson('/api/state', ['Authorization' => 'Bearer notogri'])->assertStatus(401);
+
+        // Eskirgan kod — 404
+        $this->getJson('/api/auth/token?code=YOQKOD99')->assertStatus(404);
+    }
+
+    public function test_person_photos(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $h = $this->dev(1, 'Ilhom');
+        $r = $this->postJson('/api/tree', ['name' => 'Ilhom', 'g' => 'm'], $h)->assertCreated();
+        $myId = $r->json('state.my_person_id');
+
+        // Ikki rasm yuklanadi, holatda URL bilan qaytadi
+        $f1 = \Illuminate\Http\UploadedFile::fake()->image('r1.jpg', 100, 100);
+        $r = $this->post('/api/persons/'.$myId.'/photos', ['photo' => $f1],
+            ['X-Dev-User' => '1:Ilhom', 'Accept' => 'application/json'])->assertCreated();
+        $f2 = \Illuminate\Http\UploadedFile::fake()->image('r2.png', 80, 80);
+        $r = $this->post('/api/persons/'.$myId.'/photos', ['photo' => $f2],
+            ['X-Dev-User' => '1:Ilhom', 'Accept' => 'application/json'])->assertCreated();
+        $photos = $r->json('state.persons.'.$myId.'.photos');
+        $this->assertCount(2, $photos);
+        $this->assertStringContainsString('/storage/persons/', $photos[0]['url']);
+
+        // Rasm bo'lmagan fayl rad etiladi
+        $bad = \Illuminate\Http\UploadedFile::fake()->create('x.pdf', 10, 'application/pdf');
+        $this->post('/api/persons/'.$myId.'/photos', ['photo' => $bad],
+            ['X-Dev-User' => '1:Ilhom', 'Accept' => 'application/json'])->assertStatus(422);
+
+        // O'chirish
+        $r = $this->deleteJson('/api/photos/'.$photos[0]['id'], [], $h)->assertOk();
+        $this->assertCount(1, $r->json('state.persons.'.$myId.'.photos'));
+
+        // Boshqa foydalanuvchi (boshqa daraxt) o'chira olmaydi
+        $this->postJson('/api/tree', ['name' => 'Begona', 'g' => 'm'], $this->dev(2, 'Begona'));
+        $this->deleteJson('/api/photos/'.$photos[1]['id'], [], $this->dev(2, 'Begona'))->assertStatus(404);
+    }
+
     public function test_bio_and_pdf_export(): void
     {
         \Illuminate\Support\Facades\Storage::fake('local');

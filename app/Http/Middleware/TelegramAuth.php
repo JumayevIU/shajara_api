@@ -39,6 +39,15 @@ class TelegramAuth
                     'photo_url' => $tgUser['photo_url'] ?? null,
                 ]
             );
+        } elseif (str_starts_with($auth, 'Bearer ')) {
+            // Mobil ilova tokeni (POST /api/auth/request oqimi orqali olingan)
+            $row = \App\Models\ApiToken::where('token_hash', hash('sha256', substr($auth, 7)))
+                ->whereNotNull('user_id')
+                ->first();
+            if (! $row) {
+                return response()->json(['message' => "Token noto'g'ri yoki bekor qilingan"], 401);
+            }
+            $user = $row->user;
         } elseif (app()->environment(['local', 'testing']) && $request->hasHeader('X-Dev-User')) {
             // Faqat lokal ishlab chiqish: "12345:Ism" ko'rinishida soxta foydalanuvchi
             [$id, $name] = array_pad(explode(':', (string) $request->header('X-Dev-User'), 2), 2, '');
