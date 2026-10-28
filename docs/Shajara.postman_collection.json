@@ -1,0 +1,224 @@
+{
+  "info": {
+    "name": "Shajara API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Shajara — oila daraxti ilovasi API'si (mobil ilova uchun).\n\nAUTH OQIMI:\n1) POST /api/auth/request → {code, deep_link}\n2) Foydalanuvchiga deep_link ochiriladi (Telegram bot, Start bosadi)\n3) GET /api/auth/token?code=... ni 2-3 soniyada bir so'rab turing: {status:'pending'} → {status:'ok', token}\n4) Token FAQAT BIR MARTA beriladi — saqlab oling. Keyin barcha so'rovlar: Authorization: Bearer <token>\n\nMUHIM: har bir yozuv (POST/PATCH/DELETE) javobida TO'LIQ holat qaytadi — mobil ilova shu holatni renderlab qo'ysa kifoya, lokal diff kerak emas.\n\nID formati: odamlar 'p12' ko'rinishida (string)."
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://xn--ajara-idb.uz" },
+    { "key": "token", "value": "" },
+    { "key": "auth_code", "value": "" },
+    { "key": "invite_code", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ]
+  },
+  "item": [
+    {
+      "name": "1. Auth (mobil)",
+      "item": [
+        {
+          "name": "Kod so'rash",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/auth/request", "host": ["{{base_url}}"], "path": ["api", "auth", "request"] },
+            "body": { "mode": "raw", "raw": "{\n  \"device\": \"iPhone 15 Pro\"\n}" },
+            "description": "Javob (201): {\"code\":\"AB2CD3EF\",\"deep_link\":\"https://t.me/shajaralarim_bot?start=auth_AB2CD3EF\",\"expires_in\":600}\n\ndeep_link'ni foydalanuvchiga oching (Telegram ilovasi ochiladi). Kod 10 daqiqa yashaydi."
+          }
+        },
+        {
+          "name": "Tokenni olish (poll)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/token?code={{auth_code}}",
+              "host": ["{{base_url}}"], "path": ["api", "auth", "token"],
+              "query": [ { "key": "code", "value": "{{auth_code}}" } ]
+            },
+            "description": "Har 2-3 soniyada so'rang.\n- Hali bog'lanmagan: 200 {\"status\":\"pending\"}\n- Tayyor: 200 {\"status\":\"ok\",\"token\":\"...48 belgi...\"} — token FAQAT SHU BIR javobda keladi, saqlang!\n- Qayta so'ralsa: 410 (token allaqachon olingan)\n- Kod eskirgan: 404"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Holat",
+      "item": [
+        {
+          "name": "To'liq holat",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/state", "host": ["{{base_url}}"], "path": ["api", "state"] },
+            "description": "Agar foydalanuvchi hali daraxtda bo'lmasa: {\"in_tree\":false}.\n\nAks holda:\n{\n  \"in_tree\": true,\n  \"state\": {\n    \"persons\": { \"p1\": {\"id\":\"p1\",\"name\":\"Ilhom\",\"g\":\"m\",\"by\":1992,\"dy\":null,\"alive\":true,\"bio\":null,\"photos\":[{\"id\":4,\"url\":\"https://.../storage/persons/1/abc.jpg\"}],\"fatherId\":\"p2\",\"motherId\":null,\"spouseIds\":[\"p3\"],\"claimed\":true} },\n    \"root_id\": \"p1\",\n    \"my_person_id\": \"p1\"\n  },\n  \"invite_url\": \"https://t.me/shajaralarim_bot/shajara?startapp=KOD\",\n  \"invite_code\": \"KOD\",\n  \"is_owner\": true,\n  \"members\": [ {\"id\":1,\"name\":\"Ilhom\",\"person_id\":\"p1\",\"self\":true} ]\n}\n\nmembers faqat is_owner=true bo'lganda keladi."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Daraxt",
+      "item": [
+        {
+          "name": "Daraxt yaratish",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/tree", "host": ["{{base_url}}"], "path": ["api", "tree"] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Ilhom\",\n  \"g\": \"m\",\n  \"by\": 1992\n}" },
+            "description": "O'zidan boshlaydi: daraxt + o'z kartasi yaratiladi va avtomatik egallanadi. Bir foydalanuvchi faqat BITTA daraxtda bo'la oladi (allaqachon bo'lsa 422). Javob: 201 + to'liq holat."
+          }
+        },
+        {
+          "name": "Taklifni ko'rish (preview)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": {
+              "raw": "{{base_url}}/api/invites/{{invite_code}}?person=p3",
+              "host": ["{{base_url}}"], "path": ["api", "invites", "{{invite_code}}"],
+              "query": [ { "key": "person", "value": "p3", "description": "ixtiyoriy — shaxsiy havola kartasi" } ]
+            },
+            "description": "Auth talab qiladi (Bearer bilan yuboring). Javob: {\"owner_name\":\"Ilhom\",\"persons_count\":11,\"members_count\":3} + person param berilsa: \"person\": {\"id\":\"p3\",\"name\":\"Sardor\",\"g\":\"m\",\"by\":1988,\"claimed\":false}"
+          }
+        },
+        {
+          "name": "Daraxtga qo'shilish",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/tree/join", "host": ["{{base_url}}"], "path": ["api", "tree", "join"] },
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"{{invite_code}}\",\n  \"person_id\": \"p3\"\n}" },
+            "description": "person_id ixtiyoriy (shaxsiy havola: KOD_p3 ning p3 qismi) — berilsa va karta bo'sh bo'lsa, darhol egallanadi. Karta band bo'lsa javobda \"notice\" maydoni keladi. Boshqa daraxtda bo'lsa 422, kod topilmasa 404."
+          }
+        },
+        {
+          "name": "Daraxtdan chiqish",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/tree/leave", "host": ["{{base_url}}"], "path": ["api", "tree", "leave"] },
+            "description": "Oddiy a'zo: a'zoligi o'chadi (kartasi daraxtda qoladi). Yolg'iz ega: BUTUN daraxt o'chiriladi. Boshqa a'zolari bor ega: 422. Javob: {\"in_tree\":false}"
+          }
+        },
+        {
+          "name": "Taklif havolasini yangilash",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/tree/rotate-code", "host": ["{{base_url}}"], "path": ["api", "tree", "rotate-code"] },
+            "description": "Faqat daraxt egasi (aks holda 403). Eski kod/havolalar o'ladi. Javob: to'liq holat (yangi invite_code bilan)."
+          }
+        },
+        {
+          "name": "A'zoni chiqarish",
+          "request": {
+            "method": "DELETE",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/tree/members/2", "host": ["{{base_url}}"], "path": ["api", "tree", "members", "2"] },
+            "description": "Faqat ega (403). members ro'yxatidagi id (raqam). O'zini chiqara olmaydi (422). Chiqarilganning kartasi daraxtda qoladi, lekin bo'shaydi."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Odamlar",
+      "item": [
+        {
+          "name": "Qarindosh qo'shish",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/persons", "host": ["{{base_url}}"], "path": ["api", "persons"] },
+            "body": { "mode": "raw", "raw": "{\n  \"role\": \"father\",\n  \"base_id\": \"p1\",\n  \"name\": \"Baxtiyor\",\n  \"g\": \"m\",\n  \"by\": 1965,\n  \"dy\": null,\n  \"alive\": true,\n  \"other_parent_id\": null\n}" },
+            "description": "role: father | mother | spouse | child | sibling\nbase_id — kimga nisbatan.\nother_parent_id faqat role=child uchun (ikkinchi ota-ona, masalan \"p4\").\nQoidalar: ota/ona allaqachon bor bo'lsa 422; sibling uchun base'ning ota yoki onasi kiritilgan bo'lishi shart; father=erkak, mother=ayol avtomatik.\nJavob: 201 + to'liq holat."
+          }
+        },
+        {
+          "name": "Mavjud odamni bog'lash (duplikatga qarshi)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/persons/p1/link", "host": ["{{base_url}}"], "path": ["api", "persons", "p1", "link"] },
+            "body": { "mode": "raw", "raw": "{\n  \"role\": \"mother\",\n  \"other_id\": \"p4\"\n}" },
+            "description": "Daraxtda ALLAQACHON bor odamni ota/ona/turmush o'rtoq sifatida bog'laydi (yangi karta yaratmasdan). Masalan: otaning xotini bor — uni onam deb belgilash.\nrole: father | mother | spouse. Jins mos bo'lishi shart; avlodni ajdod qilish (halqa) 422."
+          }
+        },
+        {
+          "name": "Tahrirlash",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/persons/p1", "host": ["{{base_url}}"], "path": ["api", "persons", "p1"] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Ilhom\",\n  \"g\": \"m\",\n  \"by\": 1992,\n  \"dy\": null,\n  \"alive\": true,\n  \"bio\": \"Dasturchi. Shajara loyihasi asoschisi.\"\n}" },
+            "description": "bio ixtiyoriy (3000 belgigacha); bo'sh satr yuborilsa null bo'lib tozalanadi. alive=false bo'lsa dy (vafot yili) berish mumkin."
+          }
+        },
+        {
+          "name": "O'chirish",
+          "request": {
+            "method": "DELETE",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/persons/p9", "host": ["{{base_url}}"], "path": ["api", "persons", "p9"] },
+            "description": "Himoyalar (422): foydalanuvchiga biriktirilgan kartani o'chirib bo'lmaydi; o'chirilganda daraxt uzilib qolsa ham bo'lmaydi (avval chekka qarindoshlar o'chiriladi)."
+          }
+        },
+        {
+          "name": "Bu — men (kartani egallash)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/persons/p3/claim", "host": ["{{base_url}}"], "path": ["api", "persons", "p3", "claim"] },
+            "description": "Qo'shilgan foydalanuvchi daraxtdagi o'z kartasini belgilaydi. Boshqa foydalanuvchi egallagan bo'lsa 422. Javobda state.my_person_id yangilanadi."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Rasmlar",
+      "item": [
+        {
+          "name": "Rasm yuklash",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/persons/p1/photos", "host": ["{{base_url}}"], "path": ["api", "persons", "p1", "photos"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [ { "key": "photo", "type": "file", "src": [] } ]
+            },
+            "description": "multipart/form-data, maydon nomi: photo.\nFormatlar: jpeg, png, webp. Hajm: 8MB gacha. Bir odamga ko'pi bilan 10 ta (11-chisi 422).\niOS HEIC rasmlarini yuborishdan oldin JPEG'ga aylantiring.\nJavob: 201 + to'liq holat — persons[\"p1\"].photos massivida {id, url}."
+          }
+        },
+        {
+          "name": "Rasmni o'chirish",
+          "request": {
+            "method": "DELETE",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/photos/4", "host": ["{{base_url}}"], "path": ["api", "photos", "4"] },
+            "description": "id — photos massividagi raqamli id. Faqat o'z daraxtidagi rasm (aks holda 404)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. PDF eksport (ixtiyoriy)",
+      "item": [
+        {
+          "name": "PDF saqlash (bir martalik havola olish)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/pdf" }, { "key": "Accept", "value": "application/json" } ],
+            "url": { "raw": "{{base_url}}/api/export", "host": ["{{base_url}}"], "path": ["api", "export"] },
+            "body": { "mode": "file", "file": { "src": "" } },
+            "description": "Mijoz o'zi yasagan PDF'ni yuboradi (xom bayt, %PDF- bilan boshlanishi shart, 20MB gacha). Javob: {\"url\":\"https://.../export/<token>\"} — havola BIR MARTA ishlaydi (ikkinchi so'rov 404) va 1 soatdan keyin o'chadi. Mini app buni Telegram ichida yuklab olish uchun ishlatadi; mobil ilova PDF'ni o'zi lokal saqlasa, bu endpoint shart emas."
+          }
+        }
+      ]
+    }
+  ]
+}
