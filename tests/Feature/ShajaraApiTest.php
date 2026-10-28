@@ -364,7 +364,10 @@ class ShajaraApiTest extends TestCase
         $r->assertOk();
         $path = parse_url($r->json('url'), PHP_URL_PATH);
         $this->get($path)->assertOk()->assertHeader('Content-Type', 'application/pdf');
-        $this->get($path)->assertNotFound(); // ikkinchi marta yo'q
+        // Telegram yuklab olishdan oldin URL'ni bir necha marta so'raydi —
+        // havola amal qilish muddatida qayta ishlashi SHART
+        $this->get($path)->assertOk();
+        $this->get('/export/'.str_repeat('x', 40))->assertNotFound();
 
         // PDF bo'lmagan kontent rad etiladi
         $this->call('POST', '/api/export', [], [], [],

@@ -98,7 +98,7 @@ Hammasi `Authorization: Bearer <token>` bilan (auth bo'limidagilardan tashqari).
 | POST | `/api/persons/{id}/claim` | "Bu — men" |
 | POST | `/api/persons/{id}/photos` | Rasm yuklash (multipart `photo`) |
 | DELETE | `/api/photos/{id}` | Rasmni o'chirish |
-| POST | `/api/export` | PDF saqlash → bir martalik URL (ixtiyoriy) |
+| POST | `/api/export` | PDF saqlash → vaqtinchalik URL, 1 soat (ixtiyoriy) |
 
 ### Qarindosh qo'shish — POST /api/persons
 

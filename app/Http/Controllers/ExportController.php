@@ -33,7 +33,10 @@ class ExportController extends Controller
         return response()->json(['url' => url('/export/'.$token)]);
     }
 
-    /** GET /export/{token} — faylni BIR MARTA beradi va o'chiradi (token tasodifiy). */
+    /** GET /export/{token} — faylni beradi (token tasodifiy 40 belgi).
+     *  DIQQAT: bir martalik qilib bo'lmaydi — Telegram yuklab olishdan oldin
+     *  URL'ni bir necha marta so'raydi (tekshiruv + haqiqiy yuklab olish).
+     *  Fayl store() dagi tozalashda (1 soat) o'chadi. */
     public function show(string $token)
     {
         if (! preg_match('/^[A-Za-z0-9]{40}$/', $token)) {
@@ -44,11 +47,12 @@ class ExportController extends Controller
             abort(404);
         }
         $content = Storage::get($path);
-        Storage::delete($path);
 
         return response($content, 200, [
             'Content-Type' => 'application/pdf',
+            'Content-Length' => (string) strlen($content),
             'Content-Disposition' => 'attachment; filename="shajara.pdf"',
+            'Cache-Control' => 'private, max-age=600',
         ]);
     }
 }

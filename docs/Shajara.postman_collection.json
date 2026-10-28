@@ -215,7 +215,7 @@
             "header": [ { "key": "Content-Type", "value": "application/pdf" }, { "key": "Accept", "value": "application/json" } ],
             "url": { "raw": "{{base_url}}/api/export", "host": ["{{base_url}}"], "path": ["api", "export"] },
             "body": { "mode": "file", "file": { "src": "" } },
-            "description": "Mijoz o'zi yasagan PDF'ni yuboradi (xom bayt, %PDF- bilan boshlanishi shart, 20MB gacha). Javob: {\"url\":\"https://.../export/<token>\"} — havola BIR MARTA ishlaydi (ikkinchi so'rov 404) va 1 soatdan keyin o'chadi. Mini app buni Telegram ichida yuklab olish uchun ishlatadi; mobil ilova PDF'ni o'zi lokal saqlasa, bu endpoint shart emas."
+            "description": "Mijoz o'zi yasagan PDF'ni yuboradi (xom bayt, %PDF- bilan boshlanishi shart, 20MB gacha). Javob: {\"url\":\"https://.../export/<token>\"} — havola 1 soat amal qiladi (token tasodifiy 40 belgi). Mini app buni Telegram ichida yuklab olish uchun ishlatadi; mobil ilova PDF'ni o'zi lokal saqlasa, bu endpoint shart emas."
           }
         }
       ]
