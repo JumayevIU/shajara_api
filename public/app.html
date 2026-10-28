@@ -482,7 +482,7 @@ function icon(n, s){ s = s || 18;
 
 /* ============ Holat va saqlash ============ */
 const LS_KEY = 'shajara_v1';
-const APP_VER = '28.10-17'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
+const APP_VER = '28.10-18'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
 const CARD_W = 128, CARD_H = 56, SP_GAP = 18, BLOCK_GAP = 40, SIB_GAP = 28, GROUP_GAP = 64, ROW_H = 150, BUS_DROP = 26;
 const THIS_YEAR = new Date().getFullYear();
 let state = null;          // {persons:{id:{...}}, rootId, nextId}
@@ -1562,28 +1562,57 @@ async function treeToPng(){
     const ctx = canvas.getContext('2d');
     ctx.scale(scale, scale);
     ctx.drawImage(img, 0, 0);
-    return {data: canvas.toDataURL('image/png'), w, h};
+    return {data: canvas.toDataURL('image/jpeg', 0.9), w, h}; // JPEG — PNG'dan ~5 barobar yengil
   } finally {
     URL.revokeObjectURL(svgUrl);
   }
 }
-async function exportPdf(){
+async function exportPdf(style){
   if(!state || !lastLayout || !lastLayout.count){ toast("Daraxt bo'sh"); return; }
   toast('PDF tayyorlanmoqda…');
   try{
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-    const png = await treeToPng();
-    const doc = new window.jspdf.jsPDF({
-      orientation: png.w >= png.h ? 'l' : 'p',
-      unit: 'pt',
-      format: [png.w + 80, png.h + 110]
-    });
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(32, 104, 76);
-    doc.text('Oila shajarasi', 40, 46);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(130);
+    // Tanlangan uslubda suratga olamiz — tema vaqtincha almashtiriladi
+    const htmlEl = document.documentElement;
+    const prevTheme = htmlEl.getAttribute('data-theme');
+    htmlEl.setAttribute('data-theme', style);
+    let png;
+    try{ png = await treeToPng(); }
+    finally{
+      if(prevTheme === null) htmlEl.removeAttribute('data-theme');
+      else htmlEl.setAttribute('data-theme', prevTheme);
+    }
+    const light = style === 'light';
+    const paper  = light ? [242, 244, 238] : [18, 23, 19];
+    const accent = light ? [32, 104, 76]   : [126, 200, 165];
+    const gold   = [186, 150, 62];
+    const muted  = light ? [122, 132, 122] : [148, 158, 148];
+    const W = png.w + 96, H = png.h + 174;
+    const doc = new window.jspdf.jsPDF({orientation: W >= H ? 'l' : 'p', unit:'pt', format:[W, H]});
+    // Qog'oz foni va sovg'a ramkasi (ikki qavat + burchak bezaklari)
+    doc.setFillColor(paper[0], paper[1], paper[2]);
+    doc.rect(0, 0, W, H, 'F');
+    doc.setDrawColor(gold[0], gold[1], gold[2]);
+    doc.setLineWidth(2.2); doc.rect(16, 16, W - 32, H - 32);
+    doc.setLineWidth(0.8); doc.rect(23, 23, W - 46, H - 46);
+    doc.setFillColor(gold[0], gold[1], gold[2]);
+    [[16,16],[W-16,16],[16,H-16],[W-16,H-16]].forEach(c => doc.circle(c[0], c[1], 3.4, 'F'));
+    // Sarlavha
+    doc.setFont('times', 'bolditalic'); doc.setFontSize(30);
+    doc.setTextColor(accent[0], accent[1], accent[2]);
+    doc.text('Oila Shajarasi', W/2, 64, {align: 'center'});
+    doc.setLineWidth(1.1);
+    doc.line(W/2 - 72, 76, W/2 + 72, 76);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+    doc.setTextColor(muted[0], muted[1], muted[2]);
     const n = Object.keys(state.persons).length;
-    doc.text(new Date().toISOString().slice(0, 10) + "  ·  " + n + " a'zo  ·  shajara mini app", 40, 64);
-    doc.addImage(png.data, 'PNG', 40, 80, png.w, png.h);
+    doc.text(n + " a'zo  ·  " + lastLayout.gens + ' avlod  ·  ' + new Date().toISOString().slice(0, 10),
+      W/2, 94, {align: 'center'});
+    // Daraxt
+    doc.addImage(png.data, 'JPEG', 48, 110, png.w, png.h);
+    // Pastki imzo
+    doc.setFontSize(9.5);
+    doc.text('t.me/shajaralarim_bot/shajara', W/2, H - 32, {align: 'center'});
     const mobileTg = tg && (tg.platform === 'android' || tg.platform === 'ios');
     if(mobileTg && online.active && tg.downloadFile){
       // Telegram ichida to'g'ridan-to'g'ri saqlab bo'lmaydi — serverga qo'yib,
@@ -1591,8 +1620,9 @@ async function exportPdf(){
       const hdrs = authHeaders();
       hdrs['Content-Type'] = 'application/pdf';
       const r = await fetch(API_BASE + '/api/export', {method:'POST', headers: hdrs, body: doc.output('blob')});
+      if(r.status === 413) throw new Error('Fayl juda katta');
       const d = await r.json().catch(() => null);
-      if(!r.ok) throw new Error((d && d.message) || 'Server xatosi');
+      if(!r.ok) throw new Error((d && d.message) || ('Server xatosi (' + r.status + ')'));
       tg.downloadFile({url: d.url, file_name: 'shajara.pdf'}, () => {});
     } else {
       doc.save('shajara.pdf');
@@ -1722,7 +1752,14 @@ function openSettings(){
     $('lvNo').addEventListener('click', openSettings);
   });
   const sp = $('setPdf');
-  if(sp) sp.addEventListener('click', () => { closeLayers(); exportPdf(); });
+  if(sp) sp.addEventListener('click', () => {
+    $('settRows').innerHTML =
+      '<div class="confirmBox"><p style="margin-bottom:6px">PDF uslubini tanlang</p>'
+      + '<div class="row"><button class="btn small primary" id="pdfLight">Yorug\' qog\'oz</button>'
+      + '<button class="btn small ghost" id="pdfDark">Tungi</button></div></div>';
+    $('pdfLight').addEventListener('click', () => { closeLayers(); exportPdf('light'); });
+    $('pdfDark').addEventListener('click', () => { closeLayers(); exportPdf('dark'); });
+  });
   const dg = $('setDiag');
   if(dg) dg.addEventListener('click', () => {
     const txt = diagText();

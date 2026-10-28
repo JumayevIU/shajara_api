@@ -82,6 +82,9 @@ server {
         fastcgi_pass unix:/run/php/php8.3-fpm.sock;  # php -v ga moslang
     }
 
+    # PDF eksport uchun (mijoz faylni serverga yuboradi)
+    client_max_body_size 25m;
+
     location ~ /\.(?!well-known) { deny all; }
 }
 ```
