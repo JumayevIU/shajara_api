@@ -23,4 +23,5 @@ Route::middleware([TelegramAuth::class])->group(function () {
     Route::patch('/persons/{id}', [PersonController::class, 'update']);
     Route::delete('/persons/{id}', [PersonController::class, 'destroy']);
     Route::post('/persons/{id}/claim', [PersonController::class, 'claim']);
+    Route::post('/export', [\App\Http\Controllers\ExportController::class, 'store']);
 });

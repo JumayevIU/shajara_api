@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['tree_id', 'name', 'gender', 'birth_year', 'death_year', 'alive', 'father_id', 'mother_id', 'created_by'])]
+#[Fillable(['tree_id', 'name', 'gender', 'birth_year', 'death_year', 'alive', 'bio', 'father_id', 'mother_id', 'created_by'])]
 class Person extends Model
 {
     protected $table = 'persons';

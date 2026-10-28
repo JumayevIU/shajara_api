@@ -48,6 +48,7 @@ class TreeState
                 'by' => $p->birth_year,
                 'dy' => $p->death_year,
                 'alive' => $p->alive,
+                'bio' => $p->bio,
                 'fatherId' => $p->father_id ? 'p'.$p->father_id : null,
                 'motherId' => $p->mother_id ? 'p'.$p->mother_id : null,
                 'spouseIds' => $spouses[$p->id] ?? [],

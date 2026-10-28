@@ -263,6 +263,42 @@ class ShajaraApiTest extends TestCase
         $this->postJson('/api/tree/join', ['code' => $code], $b)->assertCreated();
     }
 
+    public function test_bio_and_pdf_export(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $h = $this->dev(1, 'Ilhom');
+        $r = $this->postJson('/api/tree', ['name' => 'Ilhom', 'g' => 'm'], $h)->assertCreated();
+        $myId = $r->json('state.my_person_id');
+
+        // Bio yoziladi va holatda qaytadi
+        $r = $this->patchJson('/api/persons/'.$myId, [
+            'name' => 'Ilhom', 'g' => 'm', 'alive' => true,
+            'bio' => "Dasturchi. Shajara loyihasi asoschisi.",
+        ], $h)->assertOk();
+        $this->assertSame('Dasturchi. Shajara loyihasi asoschisi.',
+            $r->json('state.persons.'.$myId.'.bio'));
+
+        // Bo'sh bio — null bo'lib tozalanadi
+        $r = $this->patchJson('/api/persons/'.$myId, [
+            'name' => 'Ilhom', 'g' => 'm', 'alive' => true, 'bio' => '   ',
+        ], $h)->assertOk();
+        $this->assertNull($r->json('state.persons.'.$myId.'.bio'));
+
+        // PDF eksport: saqlash → bir martalik yuklab olish
+        $pdf = "%PDF-1.4 test ".str_repeat('x', 200);
+        $r = $this->call('POST', '/api/export', [], [], [],
+            ['CONTENT_TYPE' => 'application/pdf', 'HTTP_X_DEV_USER' => '1:Ilhom'], $pdf);
+        $r->assertOk();
+        $path = parse_url($r->json('url'), PHP_URL_PATH);
+        $this->get($path)->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->get($path)->assertNotFound(); // ikkinchi marta yo'q
+
+        // PDF bo'lmagan kontent rad etiladi
+        $this->call('POST', '/api/export', [], [], [],
+            ['CONTENT_TYPE' => 'application/pdf', 'HTTP_X_DEV_USER' => '1:Ilhom'], str_repeat('a', 200))
+            ->assertStatus(422);
+    }
+
     public function test_telegram_webhook_replies_with_app_button(): void
     {
         config(['services.telegram.webhook_secret' => 'test-secret']);

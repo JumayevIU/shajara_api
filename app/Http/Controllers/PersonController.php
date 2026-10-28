@@ -117,6 +117,7 @@ class PersonController extends Controller
             'by' => 'nullable|integer|min:1800|max:'.date('Y'),
             'dy' => 'nullable|integer|min:1800|max:'.date('Y'),
             'alive' => 'boolean',
+            'bio' => 'nullable|string|max:3000',
         ]);
 
         $alive = array_key_exists('alive', $data) ? (bool) $data['alive'] : true;
@@ -126,6 +127,7 @@ class PersonController extends Controller
             'birth_year' => $data['by'] ?? null,
             'death_year' => $alive ? null : ($data['dy'] ?? null),
             'alive' => $alive,
+            'bio' => isset($data['bio']) && trim((string) $data['bio']) !== '' ? trim($data['bio']) : null,
         ]);
 
         return response()->json(TreeState::build($member));

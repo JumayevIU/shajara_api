@@ -103,6 +103,8 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
   color:var(--ink); font:600 16px var(--font-ui); padding:0 13px; outline:none;
 }
 #searchBar input:focus{border-color:var(--accent)}
+#shBio{margin:10px 0 0; font-size:13.5px; color:var(--muted); line-height:1.55;
+  white-space:pre-wrap; overflow-wrap:break-word; font-weight:600}
 #searchResults{
   position:absolute; z-index:6; top:58px; left:max(14px, env(safe-area-inset-left,0px));
   right:max(14px, env(safe-area-inset-right,0px)); max-width:420px; max-height:46vh; overflow:auto;
@@ -257,11 +259,12 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
 .mCtx{color:var(--muted); font-size:13px; font-weight:600; margin:0 0 16px}
 .field{margin-bottom:14px}
 .field label{display:block; font-size:12px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin-bottom:6px}
-.field input[type=text], .field input[type=number], .field select{
+.field input[type=text], .field input[type=number], .field select, .field textarea{
   width:100%; padding:11px 13px; border-radius:12px; border:1.5px solid var(--line); background:var(--bg);
   font-weight:600;
 }
-.field input:focus, .field select:focus{border-color:var(--accent); outline:none}
+.field textarea{font-family:var(--font-ui); font-size:16px; color:var(--ink); resize:vertical; min-height:88px; line-height:1.5}
+.field input:focus, .field select:focus, .field textarea:focus{border-color:var(--accent); outline:none}
 .seg{display:grid; grid-template-columns:1fr 1fr; gap:7px}
 .seg button{padding:10px; border-radius:12px; border:1.5px solid var(--line); background:var(--bg); font-weight:700; font-size:13.5px}
 .seg button.on{border-color:var(--accent); background:var(--accent-soft); color:var(--accent)}
@@ -384,6 +387,7 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
       <h2 id="shName"></h2>
       <div><span class="relchip" id="shRel"></span></div>
       <div class="pmeta" id="shMeta"></div>
+      <p id="shBio" hidden></p>
     </div>
     <button class="iconbtn" id="shClose" aria-label="Yopish"></button>
   </div>
@@ -435,6 +439,10 @@ input,select{font-family:inherit; font-size:16px; color:var(--ink)}
         <input type="number" id="f_dy" inputmode="numeric" placeholder="—" enterkeyhint="done">
       </div>
     </div>
+    <div class="field" id="f_bioWrap" hidden>
+      <label for="f_bio">U haqida (ixtiyoriy)</label>
+      <textarea id="f_bio" maxlength="3000" rows="4" placeholder="Kasbi, hayot yo'li, xotiralar…"></textarea>
+    </div>
     <p class="formErr" id="mErr"></p>
     <button class="btn primary" id="mSave">Saqlash</button>
   </div>
@@ -468,7 +476,7 @@ function icon(n, s){ s = s || 18;
 
 /* ============ Holat va saqlash ============ */
 const LS_KEY = 'shajara_v1';
-const APP_VER = '27.10-15'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
+const APP_VER = '28.10-16'; // Sozlamalarda ko'rinadi — telefonda qaysi versiya ochilganini aniqlash uchun
 const CARD_W = 128, CARD_H = 56, SP_GAP = 18, BLOCK_GAP = 40, SIB_GAP = 28, GROUP_GAP = 64, ROW_H = 150, BUS_DROP = 26;
 const THIS_YEAR = new Date().getFullYear();
 let state = null;          // {persons:{id:{...}}, rootId, nextId}
@@ -492,7 +500,7 @@ function childrenOf(id){
 }
 function addPerson(d){
   const id = 'p' + (state.nextId++);
-  state.persons[id] = Object.assign({id, name:'', g:'m', by:null, dy:null, alive:true, fatherId:null, motherId:null, spouseIds:[]}, d);
+  state.persons[id] = Object.assign({id, name:'', g:'m', by:null, dy:null, alive:true, bio:null, fatherId:null, motherId:null, spouseIds:[]}, d);
   return id;
 }
 function linkSpouse(a,b){
@@ -1211,6 +1219,9 @@ function openSheet(id){
   if(p.by) bits.push(p.by + '-yil');
   bits.push(p.alive ? 'hayotda' : 'vafot etgan' + (p.dy ? ' ('+p.dy+')' : ''));
   $('shMeta').textContent = bits.join(' · ');
+  const bioEl = $('shBio');
+  if(p.bio){ bioEl.textContent = p.bio; bioEl.hidden = false; }
+  else bioEl.hidden = true;
 
   const acts = [];
   const mk = (role, label, ic, disabled, hint) =>
@@ -1347,7 +1358,10 @@ function openModal(ctx){
     $('f_alive').checked = !!p.alive;
     $('f_dy').value = p.dy || '';
     $('f_dyWrap').hidden = !!p.alive;
+    $('f_bioWrap').hidden = false; // "u haqida" faqat tahrirlashda — qo'shish formasi sodda qoladi
+    $('f_bio').value = p.bio || '';
   } else {
+    $('f_bioWrap').hidden = true;
     const meta = ROLE_META[ctx.role];
     const base = P(ctx.baseId);
     $('mTitle').textContent = meta.title;
@@ -1408,12 +1422,13 @@ $('mSave').addEventListener('click', () => {
   if(by !== null && (by < 1800 || by > THIS_YEAR)){ $('mErr').textContent = "Tug'ilgan yil noto'g'ri"; return; }
   if(dy !== null && (dy < 1800 || dy > THIS_YEAR || (by !== null && dy < by))){ $('mErr').textContent = "Vafot yili noto'g'ri"; return; }
   if(modalCtx.mode === 'edit'){
+    const bio = $('f_bio').value.trim() || null;
     if(online.active){
-      apiMutate('/api/persons/' + modalCtx.personId, 'PATCH', {name, g, by, dy, alive}, 'Saqlandi: ' + name);
+      apiMutate('/api/persons/' + modalCtx.personId, 'PATCH', {name, g, by, dy, alive, bio}, 'Saqlandi: ' + name);
       return;
     }
     const p = P(modalCtx.personId);
-    p.name = name; p.g = g; p.by = by; p.alive = alive; p.dy = dy;
+    p.name = name; p.g = g; p.by = by; p.alive = alive; p.dy = dy; p.bio = bio;
     closeLayers(); rerender(); toast('Saqlandi: ' + name);
   } else {
     const d = {name, g, by, dy, alive};
@@ -1429,6 +1444,98 @@ $('mSave').addEventListener('click', () => {
     toast("Qo'shildi: " + name);
   }
 });
+
+/* ============ PDF eksport ============ */
+function loadScript(src){
+  return new Promise((res, rej) => {
+    if(document.querySelector('script[src="' + src + '"]')) return res();
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = res;
+    s.onerror = () => rej(new Error("Kutubxona yuklanmadi — internetni tekshiring"));
+    document.head.appendChild(s);
+  });
+}
+/* Daraxt SVG'sini rasmga aylantiradi: tashqi CSS rasterda ishlamagani
+   uchun uslublar har bir elementga inline ko'chiriladi */
+async function treeToPng(){
+  const pos = lastLayout.pos;
+  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+  for(const id of Object.keys(pos)){
+    minX = Math.min(minX, pos[id].x); maxX = Math.max(maxX, pos[id].x + CARD_W);
+    minY = Math.min(minY, pos[id].y); maxY = Math.max(maxY, pos[id].y + CARD_H);
+  }
+  const M = 46;
+  const w = Math.ceil(maxX - minX + 2*M), h = Math.ceil(maxY - minY + 2*M);
+  const clone = world.cloneNode(true);
+  const srcEls = world.querySelectorAll('*');
+  const dstEls = clone.querySelectorAll('*');
+  const props = ['fill','stroke','stroke-width','stroke-linecap','stroke-dasharray',
+    'font-family','font-size','font-weight','font-style','letter-spacing','opacity','text-anchor'];
+  for(let i = 0; i < srcEls.length; i++){
+    const cs = getComputedStyle(srcEls[i]);
+    let st = '';
+    for(const pr of props){ const v = cs.getPropertyValue(pr); if(v) st += pr + ':' + v + ';'; }
+    dstEls[i].setAttribute('style', st);
+  }
+  clone.setAttribute('transform', 'translate(' + (M - minX) + ',' + (M - minY) + ')');
+  const bg = getComputedStyle(document.body).backgroundColor;
+  const xml = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '">'
+    + '<rect width="100%" height="100%" fill="' + bg + '"/>'
+    + new XMLSerializer().serializeToString(clone) + '</svg>';
+  const scale = Object.keys(pos).length > 60 ? 1.5 : 2;
+  const img = new Image();
+  const svgUrl = URL.createObjectURL(new Blob([xml], {type:'image/svg+xml;charset=utf-8'}));
+  try{
+    await new Promise((res, rej) => {
+      img.onload = res;
+      img.onerror = () => rej(new Error('Rasm yasalmadi'));
+      img.src = svgUrl;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0);
+    return {data: canvas.toDataURL('image/png'), w, h};
+  } finally {
+    URL.revokeObjectURL(svgUrl);
+  }
+}
+async function exportPdf(){
+  if(!state || !lastLayout || !lastLayout.count){ toast("Daraxt bo'sh"); return; }
+  toast('PDF tayyorlanmoqda…');
+  try{
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    const png = await treeToPng();
+    const doc = new window.jspdf.jsPDF({
+      orientation: png.w >= png.h ? 'l' : 'p',
+      unit: 'pt',
+      format: [png.w + 80, png.h + 110]
+    });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(32, 104, 76);
+    doc.text('Oila shajarasi', 40, 46);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(130);
+    const n = Object.keys(state.persons).length;
+    doc.text(new Date().toISOString().slice(0, 10) + "  ·  " + n + " a'zo  ·  shajara mini app", 40, 64);
+    doc.addImage(png.data, 'PNG', 40, 80, png.w, png.h);
+    const mobileTg = tg && (tg.platform === 'android' || tg.platform === 'ios');
+    if(mobileTg && online.active && tg.downloadFile){
+      // Telegram ichida to'g'ridan-to'g'ri saqlab bo'lmaydi — serverga qo'yib,
+      // Telegram'ning o'z yuklab olish oynasi orqali beramiz
+      const hdrs = authHeaders();
+      hdrs['Content-Type'] = 'application/pdf';
+      const r = await fetch(API_BASE + '/api/export', {method:'POST', headers: hdrs, body: doc.output('blob')});
+      const d = await r.json().catch(() => null);
+      if(!r.ok) throw new Error((d && d.message) || 'Server xatosi');
+      tg.downloadFile({url: d.url, file_name: 'shajara.pdf'}, () => {});
+    } else {
+      doc.save('shajara.pdf');
+      toast('PDF yuklab olindi');
+    }
+  }catch(e){ toast('PDF xatosi: ' + e.message); }
+}
 
 /* ============ Sozlamalar ============ */
 function openSettings(){
@@ -1470,6 +1577,7 @@ function openSettings(){
       : 'Daraxtdan chiqish';
     if(leaveLabel) rows += '<button class="btn ghost" id="setLeave" style="color:var(--danger)">' + leaveLabel + '</button>';
   }
+  rows += '<button class="btn ghost" id="setPdf">PDF yuklab olish</button>';
   rows += '<button class="btn ghost" id="setDiag">Diagnostika</button>';
   $('settRows').innerHTML = rows;
   $('settNote').textContent = (online.active
@@ -1549,6 +1657,8 @@ function openSettings(){
     });
     $('lvNo').addEventListener('click', openSettings);
   });
+  const sp = $('setPdf');
+  if(sp) sp.addEventListener('click', () => { closeLayers(); exportPdf(); });
   const dg = $('setDiag');
   if(dg) dg.addEventListener('click', () => {
     const txt = diagText();
