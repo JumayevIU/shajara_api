@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Shajara Admin</title>
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="%2320684c"/><g fill="none" stroke="%23f2f4ee" stroke-width="1.9" stroke-linecap="round"><path d="M12 19.5v-7M12 12.5 7.4 9.1M12 12.5l4.6-3.4"/></g><circle cx="12" cy="5.4" r="2" fill="%23f2f4ee"/><circle cx="5.8" cy="7.9" r="1.7" fill="%23f2f4ee"/><circle cx="18.2" cy="7.9" r="1.7" fill="%23f2f4ee"/></svg>'>
+<style>
+:root{--bg:#121713;--surface:#1c231e;--line:#2b342d;--ink:#e4e9e4;--muted:#94a094;--accent:#7ec8a5;--accent-soft:rgba(126,200,165,.12);--danger:#e08585}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,'Segoe UI',Roboto,sans-serif;padding:20px}
+.wrap{max-width:860px;margin:0 auto}
+h1{font-size:20px;margin:0 0 16px}
+h1 small{color:var(--muted);font-weight:400;font-size:13px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+input,textarea,button{font:inherit;color:inherit}
+input,textarea{width:100%;background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px}
+input:focus,textarea:focus{outline:none;border-color:var(--accent)}
+button{background:var(--accent);color:#10231a;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+button.sm{padding:5px 10px;font-size:12.5px}
+.tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.tabs button{background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.tabs button.on{color:var(--accent);border-color:var(--accent)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.stat{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.stat b{display:block;font-size:24px;color:var(--accent)}
+.stat span{font-size:12px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:8px 6px;border-top:1px solid var(--line)}
+th{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;border:0}
+.muted{color:var(--muted)}
+#toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-weight:600;font-size:13.5px;display:none;max-width:90%;z-index:9}
+.hidden{display:none}
+.result{font-size:13px;color:var(--muted);white-space:pre-wrap;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🌳 Shajara Admin <small id="ver"></small></h1>
+
+  <div id="login" class="card">
+    <p style="margin-top:0">Admin kalitini kiriting (bot sizga yuborgan):</p>
+    <input id="keyInput" type="password" placeholder="Admin kaliti" autocomplete="off">
+    <div style="margin-top:10px"><button onclick="saveKey()">Kirish</button></div>
+  </div>
+
+  <div id="panel" class="hidden">
+    <div class="tabs">
+      <button data-tab="overview" class="on" onclick="show('overview')">Umumiy</button>
+      <button data-tab="users" onclick="show('users')">Foydalanuvchilar</button>
+      <button data-tab="trees" onclick="show('trees')">Daraxtlar</button>
+      <button data-tab="broadcast" onclick="show('broadcast')">Xabar yuborish</button>
+      <button class="ghost" style="margin-left:auto" onclick="logout()">Chiqish</button>
+    </div>
+
+    <div id="tab-overview" class="card"><div class="stats" id="statGrid">Yuklanmoqda…</div></div>
+
+    <div id="tab-users" class="card hidden">
+      <table id="usersTbl"><thead><tr>
+        <th>Ism</th><th>Username</th><th>Qo'shilgan</th><th>Daraxt</th><th>Kartasi</th><th>Kiritgan</th><th></th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+
+    <div id="tab-trees" class="card hidden">
+      <table id="treesTbl"><thead><tr>
+        <th>#</th><th>Ega</th><th>A'zolar</th><th>Kartalar</th><th>Yaratilgan</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+
+    <div id="tab-broadcast" class="card hidden">
+      <p style="margin-top:0">Barcha foydalanuvchilarga bot orqali xabar.
+      <span class="muted">Eslatma: Telegram qoidasiga ko'ra bot faqat unga avval yozgan (Start bosgan) odamlarga xabar yubora oladi.</span></p>
+      <textarea id="bcText" rows="5" maxlength="3500" placeholder="Xabar matni…"></textarea>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+        <button id="bcBtn" onclick="broadcast()">Hammaga yuborish</button>
+        <span class="muted" id="bcCount"></span>
+      </div>
+      <div class="result" id="bcResult"></div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+let KEY = localStorage.getItem('shajara_admin_key') || '';
+const $id = s => document.getElementById(s);
+function toast(t){ const el=$id('toast'); el.textContent=t; el.style.display='block'; clearTimeout(el._t); el._t=setTimeout(()=>el.style.display='none', 3500); }
+async function api(path, method, body){
+  const r = await fetch('/api' + path, {
+    method: method || 'GET',
+    headers: {'X-Admin-Key': KEY, 'Content-Type': 'application/json', 'Accept': 'application/json'},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const d = await r.json().catch(() => null);
+  if(r.status === 403){ logout(); throw new Error("Kalit noto'g'ri"); }
+  if(!r.ok) throw new Error((d && d.message) || ('Xato ' + r.status));
+  return d;
+}
+function saveKey(){
+  KEY = $id('keyInput').value.trim();
+  if(!KEY) return;
+  localStorage.setItem('shajara_admin_key', KEY);
+  boot();
+}
+function logout(){
+  localStorage.removeItem('shajara_admin_key'); KEY='';
+  $id('panel').classList.add('hidden'); $id('login').classList.remove('hidden');
+}
+function show(tab){
+  for(const b of document.querySelectorAll('.tabs [data-tab]')) b.classList.toggle('on', b.dataset.tab === tab);
+  for(const t of ['overview','users','trees','broadcast']) $id('tab:'.replace(':','-') + t).classList.toggle('hidden', t !== tab);
+  if(tab === 'users') loadUsers();
+  if(tab === 'trees') loadTrees();
+}
+const esc = s => String(s ?? '—').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function boot(){
+  try{
+    const d = await api('/admin/overview');
+    $id('login').classList.add('hidden'); $id('panel').classList.remove('hidden');
+    $id('statGrid').innerHTML = [
+      ['Foydalanuvchilar', d.foydalanuvchilar], ['Daraxtlar', d.daraxtlar],
+      ['Kartalar', d.kartalar], ['Rasmlar', d.rasmlar],
+      ['Bugun', d.bugun_qoshilganlar], ['7 kunda', d.hafta_qoshilganlar]
+    ].map(([t, v]) => '<div class="stat"><b>' + v + '</b><span>' + t + '</span></div>').join('');
+    $id('bcCount').textContent = d.foydalanuvchilar + ' kishiga ketadi';
+  }catch(e){ toast(e.message); }
+}
+async function loadUsers(){
+  try{
+    const d = await api('/admin/users');
+    $id('usersTbl').querySelector('tbody').innerHTML = d.users.map(u =>
+      '<tr><td><b>' + esc(u.ism) + '</b></td><td class="muted">' + (u.username ? '@' + esc(u.username) : '—')
+      + '</td><td class="muted">' + esc(u.qoshilgan) + '</td><td>' + esc(u.daraxt) + '</td><td>' + esc(u.kartasi)
+      + '</td><td>' + u.kiritgan_kartalari + '</td>'
+      + '<td><button class="sm ghost" onclick="dm(' + u.id + ',\'' + esc(u.ism).replace(/'/g, '') + '\')">Xabar</button></td></tr>'
+    ).join('');
+  }catch(e){ toast(e.message); }
+}
+async function loadTrees(){
+  try{
+    const d = await api('/admin/trees');
+    $id('treesTbl').querySelector('tbody').innerHTML = d.trees.map(t =>
+      '<tr><td>#' + t.id + '</td><td><b>' + esc(t.ega) + '</b></td><td>' + t.azolar + '</td><td>' + t.kartalar
+      + '</td><td class="muted">' + esc(t.yaratilgan) + '</td></tr>'
+    ).join('');
+  }catch(e){ toast(e.message); }
+}
+async function dm(userId, name){
+  const text = prompt(name + ' ga xabar:');
+  if(!text || !text.trim()) return;
+  try{
+    const d = await api('/admin/message', 'POST', {user_id: userId, text: text.trim()});
+    toast(d.sent ? 'Yuborildi ✓' : "Yuborilmadi — u botga hali yozmagan bo'lishi mumkin");
+  }catch(e){ toast(e.message); }
+}
+async function broadcast(){
+  const text = $id('bcText').value.trim();
+  if(!text){ toast('Matn kiriting'); return; }
+  if(!confirm('Hammaga yuborilsinmi?')) return;
+  $id('bcBtn').disabled = true;
+  $id('bcResult').textContent = 'Yuborilmoqda…';
+  try{
+    const d = await api('/admin/broadcast', 'POST', {text});
+    $id('bcResult').textContent = 'Yetib bordi: ' + d.sent + ' ta\nYetmadi: ' + d.failed + ' ta'
+      + (d.failed_users && d.failed_users.length ? '\n(' + d.failed_users.join(', ') + ' — botga hali yozishmagan)' : '');
+    $id('bcText').value = '';
+  }catch(e){ $id('bcResult').textContent = 'Xato: ' + e.message; }
+  $id('bcBtn').disabled = false;
+}
+if(KEY) boot();
+</script>
+</body>
+</html>

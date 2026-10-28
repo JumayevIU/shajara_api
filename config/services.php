@@ -42,4 +42,8 @@ return [
         'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
     ],
 
+    'admin' => [
+        'key' => env('ADMIN_KEY'),
+    ],
+
 ];

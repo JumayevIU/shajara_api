@@ -9,6 +9,15 @@ use Illuminate\Support\Facades\Route;
 // Bot webhook — Telegram'ning o'zi chaqiradi (secret token bilan himoyalangan)
 Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle']);
 
+// Admin panel (X-Admin-Key bilan)
+Route::middleware([\App\Http\Middleware\AdminAuth::class])->prefix('admin')->group(function () {
+    Route::get('/overview', [\App\Http\Controllers\AdminController::class, 'overview']);
+    Route::get('/users', [\App\Http\Controllers\AdminController::class, 'users']);
+    Route::get('/trees', [\App\Http\Controllers\AdminController::class, 'trees']);
+    Route::post('/message', [\App\Http\Controllers\AdminController::class, 'message']);
+    Route::post('/broadcast', [\App\Http\Controllers\AdminController::class, 'broadcast']);
+});
+
 // Mobil ilova autentifikatsiyasi (ochiq, throttle bilan)
 Route::post('/auth/request', [\App\Http\Controllers\AuthController::class, 'request'])
     ->middleware('throttle:20,1');

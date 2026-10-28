@@ -263,6 +263,43 @@ class ShajaraApiTest extends TestCase
         $this->postJson('/api/tree/join', ['code' => $code], $b)->assertCreated();
     }
 
+    public function test_admin_panel(): void
+    {
+        config(['services.admin.key' => 'test-admin-key']);
+        $ok = ['X-Admin-Key' => 'test-admin-key'];
+
+        // Kalitsiz yoki noto'g'ri kalit — 403
+        $this->getJson('/api/admin/overview')->assertStatus(403);
+        $this->getJson('/api/admin/overview', ['X-Admin-Key' => 'xato'])->assertStatus(403);
+
+        // Ma'lumot tayyorlaymiz
+        $this->postJson('/api/tree', ['name' => 'Ilhom', 'g' => 'm'], $this->dev(1, 'Ilhom'))->assertCreated();
+
+        $r = $this->getJson('/api/admin/overview', $ok)->assertOk();
+        $this->assertSame(1, $r->json('foydalanuvchilar'));
+        $this->assertSame(1, $r->json('daraxtlar'));
+
+        $r = $this->getJson('/api/admin/users', $ok)->assertOk();
+        $this->assertSame('Ilhom', $r->json('users.0.ism'));
+        $this->assertStringContainsString('ega', $r->json('users.0.daraxt'));
+
+        $this->getJson('/api/admin/trees', $ok)->assertOk()->assertJsonPath('trees.0.ega', 'Ilhom');
+
+        // Alohida xabar
+        \Illuminate\Support\Facades\Http::fake([
+            '*' => \Illuminate\Support\Facades\Http::response(['ok' => true]),
+        ]);
+        $uid = $r->json('users.0.id');
+        $this->postJson('/api/admin/message', ['user_id' => $uid, 'text' => 'Salom!'], $ok)
+            ->assertOk()->assertJsonPath('sent', 1);
+
+        // Ommaviy xabar
+        $this->postJson('/api/tree', ['name' => 'Olim', 'g' => 'm'], $this->dev(2, 'Olim'));
+        $r = $this->postJson('/api/admin/broadcast', ['text' => 'Yangilik!'], $ok)->assertOk();
+        $this->assertSame(2, $r->json('sent'));
+        \Illuminate\Support\Facades\Http::assertSentCount(3); // 1 message + 2 broadcast
+    }
+
     public function test_mobile_auth_flow(): void
     {
         config(['services.telegram.webhook_secret' => 'test-secret']);
