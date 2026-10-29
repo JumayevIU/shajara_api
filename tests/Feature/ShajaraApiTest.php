@@ -285,6 +285,14 @@ class ShajaraApiTest extends TestCase
 
         $this->getJson('/api/admin/trees', $ok)->assertOk()->assertJsonPath('trees.0.ega', 'Ilhom');
 
+        // Daraxtni ko'rish (holat) — kalit bilan, yo'q id'ga 404
+        $tid = $this->getJson('/api/admin/trees', $ok)->json('trees.0.id');
+        $rs = $this->getJson('/api/admin/trees/'.$tid.'/state', $ok)->assertOk();
+        $this->assertTrue($rs->json('in_tree'));
+        $this->assertNotEmpty($rs->json('state.persons'));
+        $this->getJson('/api/admin/trees/99999/state', $ok)->assertStatus(404);
+        $this->getJson('/api/admin/trees/'.$tid.'/state')->assertStatus(403);
+
         // Alohida xabar
         \Illuminate\Support\Facades\Http::fake([
             '*' => \Illuminate\Support\Facades\Http::response(['ok' => true]),

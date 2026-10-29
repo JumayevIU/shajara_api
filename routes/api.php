@@ -14,6 +14,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->prefix('admin')->gro
     Route::get('/overview', [\App\Http\Controllers\AdminController::class, 'overview']);
     Route::get('/users', [\App\Http\Controllers\AdminController::class, 'users']);
     Route::get('/trees', [\App\Http\Controllers\AdminController::class, 'trees']);
+    Route::get('/trees/{id}/state', [\App\Http\Controllers\AdminController::class, 'treeState']);
     Route::post('/message', [\App\Http\Controllers\AdminController::class, 'message']);
     Route::post('/broadcast', [\App\Http\Controllers\AdminController::class, 'broadcast']);
 });

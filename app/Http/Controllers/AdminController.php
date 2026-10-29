@@ -69,6 +69,18 @@ class AdminController extends Controller
         return response()->json(['trees' => $out]);
     }
 
+    /** GET /api/admin/trees/{id}/state — daraxtning to'liq holati (ko'rish uchun). */
+    public function treeState(string $id)
+    {
+        $tree = Tree::find((int) $id);
+        $member = $tree ? TreeMember::where('tree_id', $tree->id)->first() : null;
+        if (! $member) {
+            return response()->json(['message' => 'Daraxt topilmadi'], 404);
+        }
+
+        return response()->json(\App\Services\TreeState::build($member));
+    }
+
     /** POST /api/admin/message — bitta foydalanuvchiga xabar. */
     public function message(Request $request)
     {

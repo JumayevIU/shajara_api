@@ -34,6 +34,8 @@ th{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.
 #toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-weight:600;font-size:13.5px;display:none;max-width:90%;z-index:9}
 .hidden{display:none}
 .result{font-size:13px;color:var(--muted);white-space:pre-wrap;margin-top:10px}
+a.viewBtn{display:inline-block;padding:5px 11px;border:1px solid var(--line);border-radius:10px;color:var(--accent);text-decoration:none;font-size:12.5px;font-weight:700}
+a.viewBtn:hover{border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -65,7 +67,7 @@ th{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.
 
     <div id="tab-trees" class="card hidden">
       <table id="treesTbl"><thead><tr>
-        <th>#</th><th>Ega</th><th>A'zolar</th><th>Kartalar</th><th>Yaratilgan</th>
+        <th>#</th><th>Ega</th><th>A'zolar</th><th>Kartalar</th><th>Yaratilgan</th><th></th>
       </tr></thead><tbody></tbody></table>
     </div>
 
@@ -143,7 +145,8 @@ async function loadTrees(){
     const d = await api('/admin/trees');
     $id('treesTbl').querySelector('tbody').innerHTML = d.trees.map(t =>
       '<tr><td>#' + t.id + '</td><td><b>' + esc(t.ega) + '</b></td><td>' + t.azolar + '</td><td>' + t.kartalar
-      + '</td><td class="muted">' + esc(t.yaratilgan) + '</td></tr>'
+      + '</td><td class="muted">' + esc(t.yaratilgan) + '</td>'
+      + '<td><a class="viewBtn" href="/?admin_tree=' + t.id + '" target="_blank">Ko\'rish</a></td></tr>'
     ).join('');
   }catch(e){ toast(e.message); }
 }
